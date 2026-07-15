@@ -1,6 +1,6 @@
 # UI System
 
-> Status: Living design document; Task 1 implementation is underway.
+> Status: Living design document; Task 1 is implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
@@ -26,7 +26,7 @@ User-provided apply command:
 bunx --bun shadcn@latest apply --preset b1D0enCq
 ```
 
-This command is recorded for the future implementation task. It has not been run in a Wave Player Next repository because that repository does not yet exist.
+This command was applied in the Wave Player Next repository during Task 1. The resulting project uses Base UI primitives and the decoded preset below.
 
 ## Decoded preset
 
@@ -59,7 +59,7 @@ Consequences:
 - verify component documentation against the configured primitive base before implementation;
 - treat a base change as an explicit migration, not a casual preset update.
 
-## Setup procedure for the future implementation task
+## Applied Task 1 setup procedure
 
 1. Create the Bun/React project.
 2. Initialize shadcn/ui with Base UI primitives.

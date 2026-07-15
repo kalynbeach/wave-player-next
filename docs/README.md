@@ -1,6 +1,6 @@
 # Wave Player Next
 
-> Status: Living design packet; Task 1 implementation is underway.
+> Status: Living design packet; Task 1 is implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
@@ -10,7 +10,7 @@
 
 This directory is the durable planning record for Wave Player Next: a local-first personal audiovisual music system that begins as an isolated TypeScript and Bun application and may later contribute stable modules or packages back to KKB.
 
-The packet is intended to support continued design discussion in the current Codex task and a clean handoff to future implementation tasks after explicit approval. It is not an implementation plan that should be executed automatically.
+The packet remains the design source of truth for the implemented first slice and future phase discussions. Later phases still require their own explicit implementation authorization.
 
 ## Current product direction
 
@@ -39,6 +39,7 @@ Read these documents in order before planning or implementing:
 9. [Scope and roadmap](scope-and-roadmap.md) — first useful release, exclusions, later phases, and phase gates.
 10. [Decision log](decision-log.md) — settled, provisional, and deferred decisions from the planning discussion.
 11. [Implementation handoff](implementation-handoff.md) — readiness criteria and instructions for future Codex implementation tasks.
+12. [Task 1 implementation report](implementation-report.md) — delivered scope, automated gates, and live verification evidence.
 
 ## Settled constraints
 
@@ -70,6 +71,7 @@ Read these documents in order before planning or implementing:
 - Introduce Rust first through a pure analysis/cymatics core compiled to WASM and reused by a native CLI.
 - Treat Convex, S3/R2, GPUI, Native SDK, and broader source integrations as later phases.
 - Task 1 implementation began after explicit user approval on July 15, 2026.
+- Task 1 implementation and verification completed on July 15, 2026.
 
 ## Prior local work to consult
 
@@ -88,11 +90,11 @@ Future planning and implementation tasks should inspect, but not blindly copy:
 - Add newly settled choices to `decision-log.md`.
 - Update the affected design document when a decision changes architecture or scope.
 - Keep deferred ideas in `scope-and-roadmap.md` instead of silently adding them to the first release.
-- Keep `implementation-handoff.md` marked ready for goal creation only while all blocking decisions remain resolved.
-- When implementation begins, preserve this directory as the design source of truth and record material deviations.
+- Keep `implementation-handoff.md` and `implementation-report.md` aligned with delivered status and later phase gates.
+- Preserve this directory as the design source of truth and record material deviations.
 
 ## Handoff recommendation
 
-Use one primary Codex implementation task for the first vertical slice because the Bun host, SQLite catalog, media route, player controller, React UI, and first visualizer must be proven together. Use later tasks for the Rust/WASM core, additional visual scenes, Convex/cloud work, and GPUI exploration after the first slice is stable.
+Task 1 used one primary Codex implementation task so the Bun host, SQLite catalog, media route, player controller, React UI, and first visualizer could be proven together. Use later tasks for the Rust/WASM core, additional visual scenes, Convex/cloud work, and GPUI exploration now that the first slice is stable.
 
 Do not create worktrees. Do not begin a KKB migration during the isolated experiment.

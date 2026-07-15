@@ -1,6 +1,6 @@
 # Decision Log
 
-> Status: Living design document; Task 1 implementation is underway.
+> Status: Living design document; Task 1 is implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
@@ -51,6 +51,7 @@
 | 2026-07-15 | Settled | Require the implementation task to use the installed Impeccable, shadcn, Interface Craft, and Emil design-engineering skills for UI work. | The card shell, Base UI composition, motion, responsive behavior, and polish should be shaped and verified through the user's established agent workflow. |
 | 2026-07-15 | Settled | Do not begin implementation until explicit approval. | The current task remains architecture and documentation work. |
 | 2026-07-15 | Settled | Begin Task 1 after explicit user approval, with logical verified milestone commits. | The implementation goal is active; commits remain local and no remote, push, PR, or publication is authorized. |
+| 2026-07-15 | Settled | Accept Task 1 as implemented and verified. | The complete automated gate and Codex-native live verification pass; `implementation-report.md` records the evidence and all deferred phases remain out of scope. |
 
 ## Deferred decisions
 

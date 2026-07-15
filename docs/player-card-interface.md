@@ -1,6 +1,6 @@
 # Player Card Interface
 
-> Status: Living design document; Task 1 implementation is underway.
+> Status: Living design document; Task 1 is implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >

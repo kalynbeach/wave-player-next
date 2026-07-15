@@ -1,6 +1,6 @@
 # Implementation Handoff
 
-> Status: Task 1 implementation underway under active Codex goal `019f6719-0a74-73b1-b19a-4fe04920214c`.
+> Status: Task 1 implemented and verified under Codex goal `019f6719-0a74-73b1-b19a-4fe04920214c`.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
@@ -8,9 +8,9 @@
 
 ## Purpose
 
-This document will become the handoff from the planning task to future Codex implementation tasks.
+This document records the handoff from planning into Task 1 and the gate for future implementation tasks.
 
-The user explicitly approved implementation on July 15, 2026. The Task 1 goal is active in the isolated repository described below.
+The user explicitly approved implementation on July 15, 2026. Task 1 completed in the isolated repository described below; see [Task 1 implementation and verification report](implementation-report.md).
 
 ## Recommended task structure
 
@@ -62,13 +62,13 @@ The planning packet, repository path, format boundary, root flow, API shape, car
 
 All preconditions were satisfied and the implementation goal was created on July 15, 2026.
 
-## Draft objective for the future goal
+## Task 1 objective
 
 The eventual objective should be equivalent to:
 
 > Build and verify the first useful Wave Player Next vertical slice in a new isolated repository at `~/dev/apps/wave-player-next`: a TypeScript 7 and Bun localhost React application using shadcn/ui with Base UI preset `b1D0enCq`; a tested SQLite-backed library that configures one root and indexes WAV and MP3 files in place; secure Range-capable media serving; reliable browser-native playback and session restoration; and a responsive trading-card-structured player with persistent track identity and transport around changeable Visual, Library, and Scene views, including one interactive WebGPU oscilloscope/Lissajous scene with saved presets. Use the installed design skills and Codex-native Browser and Computer Use verification. Persist until the complete implementation acceptance criteria pass, while keeping every deferred phase out of scope.
 
-This is a draft, not an active goal.
+This objective was activated and completed on July 15, 2026.
 
 ## Required implementation constraints
 
@@ -202,4 +202,4 @@ Stop and ask for direction if implementation would require:
 - [x] Packet consistency reviewed.
 - [x] User gave explicit implementation approval.
 
-The planning work is ready. Do not create or start the implementation goal until the user explicitly approves that transition.
+Task 1 completed after the approved transition. Do not begin a later phase without a separately scoped and authorized goal.
