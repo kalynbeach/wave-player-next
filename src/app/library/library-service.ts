@@ -1,3 +1,4 @@
+import { LibraryNotConfiguredError } from "@/app/library/library-errors";
 import type {
   DirectoryGateway,
   LibraryFileScanner,
@@ -39,7 +40,9 @@ export class LibraryService {
     const root = this.#repository.getActiveRoot();
 
     if (!root) {
-      throw new Error("Configure a library root before scanning.");
+      throw new LibraryNotConfiguredError(
+        "Configure a library root before scanning.",
+      );
     }
 
     this.#repository.beginScan(root.id);
