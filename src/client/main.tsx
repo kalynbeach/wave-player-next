@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "@/client/app/app";
+import { TooltipProvider } from "@/client/components/ui/tooltip";
 
 const rootElement = document.querySelector("#root");
 
@@ -11,6 +12,8 @@ if (!(rootElement instanceof HTMLElement)) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <TooltipProvider>
+      <App />
+    </TooltipProvider>
   </StrictMode>,
 );

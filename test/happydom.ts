@@ -15,3 +15,10 @@ globalThis.Headers = BunHeaders;
 globalThis.Request = BunRequest;
 globalThis.Response = BunResponse;
 globalThis.URL = BunUrl;
+
+if (typeof Element.prototype.getAnimations !== "function") {
+  Object.defineProperty(Element.prototype, "getAnimations", {
+    configurable: true,
+    value: () => [],
+  });
+}
