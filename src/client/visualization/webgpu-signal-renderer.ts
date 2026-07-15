@@ -221,7 +221,11 @@ export class WebGpuSignalRenderer {
 
   setActive(active: boolean): void {
     this.#active = active;
-    if (active) this.#scheduleFrame();
+    if (active) {
+      this.#scheduleFrame();
+    } else {
+      this.#cancelFrame();
+    }
   }
 
   dispose(): void {

@@ -176,7 +176,8 @@ test("retains an assigned graph and retries resume on the next gesture", async (
   runtime.load({ locationId: LOCATION_ID, url: `/media/${LOCATION_ID}` });
 
   await expect(runtime.play()).rejects.toThrow("Resume failed");
-  expect(fixture.playCount()).toBe(0);
+  expect(fixture.playCount()).toBe(1);
+  expect(fixture.pauseCount()).toBe(2);
   expect(runtime.getSnapshot()).toMatchObject({
     status: "error",
     error: { code: "media_error" },
@@ -186,7 +187,52 @@ test("retains an assigned graph and retries resume on the next gesture", async (
   expect(contextCount).toBe(1);
   expect(resumeCount).toBe(2);
   expect(closeCount).toBe(0);
+  expect(fixture.playCount()).toBe(2);
+  expect(runtime.getSnapshot()).toMatchObject({
+    status: "playing",
+    analysisAvailable: true,
+    error: null,
+  });
+});
+
+test("invokes media play before a pending audio-context resume settles", async () => {
+  const fixture = fixtureMedia();
+  let resolveResume: () => void = () => undefined;
+  const resume = new Promise<void>((resolve) => {
+    resolveResume = resolve;
+  });
+  const node = {
+    connect: () => node,
+    disconnect: () => undefined,
+  };
+  const analyser = {
+    ...node,
+    fftSize: 2_048,
+    frequencyBinCount: 1_024,
+    smoothingTimeConstant: 0,
+    getByteFrequencyData: () => undefined,
+    getFloatTimeDomainData: () => undefined,
+  };
+  const context = {
+    state: "suspended",
+    sampleRate: 48_000,
+    destination: node,
+    createMediaElementSource: () => node,
+    createChannelSplitter: () => node,
+    createAnalyser: () => ({ ...analyser }),
+    resume: () => resume,
+  } as unknown as AudioContext;
+  const runtime = new HtmlMediaPlaybackRuntime(fixture.media, {
+    createAudioContext: () => context,
+  });
+  runtime.load({ locationId: LOCATION_ID, url: `/media/${LOCATION_ID}` });
+
+  const playback = runtime.play();
+
   expect(fixture.playCount()).toBe(1);
+  expect(runtime.getSnapshot().status).toBe("loading");
+  resolveResume();
+  await playback;
   expect(runtime.getSnapshot()).toMatchObject({
     status: "playing",
     analysisAvailable: true,

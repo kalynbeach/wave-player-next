@@ -88,6 +88,10 @@ function ConnectedPlayer({ runtime }: { runtime: ApplicationRuntime }) {
     setError(cause instanceof Error ? cause.message : fallback);
   };
 
+  const reportPlaybackError = (fallback: string): void => {
+    setError(runtime.playback.getSnapshot().error?.message ?? fallback);
+  };
+
   const configureRoot = async (path: string): Promise<void> => {
     setBusy(true);
     setError(null);
@@ -124,15 +128,15 @@ function ConnectedPlayer({ runtime }: { runtime: ApplicationRuntime }) {
     try {
       await runtime.controller.select(trackId);
     } catch (cause) {
-      reportActionError(cause, "The selected track could not be played.");
+      reportPlaybackError("The selected track could not be played.");
       throw cause;
     }
   };
 
   const runTransportAction = (action: () => Promise<void>): void => {
     setError(null);
-    void action().catch((cause: unknown) => {
-      reportActionError(cause, "Playback could not continue.");
+    void action().catch(() => {
+      reportPlaybackError("Playback could not continue.");
     });
   };
 

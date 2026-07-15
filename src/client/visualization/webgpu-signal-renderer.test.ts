@@ -170,3 +170,29 @@ test("cancels and permanently gates rendering when the device is lost", async ()
   renderer?.dispose();
   expect(harness.counts.deviceDestroy).toBe(1);
 });
+
+test("cancels hidden-view frames and resumes with one scheduled frame", async () => {
+  const harness = createHarness();
+  const renderer = await WebGpuSignalRenderer.create({
+    canvas: harness.canvas,
+    signalProvider: harness.signalProvider,
+    parameters: DEFAULT_SIGNAL_SCENE_PARAMETERS,
+    onStatus: () => undefined,
+    environment: harness.environment,
+  });
+  const hiddenFrame = harness.getFrame();
+
+  renderer?.setActive(false);
+  hiddenFrame?.(16);
+
+  expect(harness.counts.cancelFrame).toBe(1);
+  expect(harness.counts.readFrame).toBe(0);
+  expect(harness.counts.frameRequests).toBe(1);
+
+  renderer?.setActive(true);
+  expect(harness.counts.frameRequests).toBe(2);
+
+  renderer?.setActive(false);
+  renderer?.dispose();
+  expect(harness.counts.cancelFrame).toBe(2);
+});

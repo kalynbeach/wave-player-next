@@ -28,6 +28,7 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
   readonly signalProvider = new WebAudioSignalProvider();
   #audioGraph: AudioGraph | null = null;
   #destroyed = false;
+  #playActivationPending = false;
   #snapshot: PlaybackSnapshot;
 
   constructor(
@@ -104,12 +105,18 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
 
   async play(): Promise<void> {
     this.#assertActive();
+    this.#playActivationPending = true;
 
     try {
-      await this.#ensureAudioGraph();
-      await this.#media.play();
+      const graphActivation = this.#ensureAudioGraph();
+      const mediaPlayback = this.#media.play();
+      await Promise.all([graphActivation, mediaPlayback]);
+      this.#playActivationPending = false;
+      this.#syncTime("playing");
       this.#update({ error: null });
     } catch (error) {
+      this.#playActivationPending = false;
+      this.#media.pause();
       const blocked =
         error instanceof DOMException && error.name === "NotAllowedError";
       const playbackError: PlaybackError = {
@@ -191,7 +198,7 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
         break;
       case "play":
       case "playing":
-        this.#syncTime("playing");
+        this.#syncTime(this.#playActivationPending ? "loading" : "playing");
         break;
       case "pause":
         this.#syncTime(this.#media.ended ? "ended" : "paused");

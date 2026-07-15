@@ -73,10 +73,10 @@ export function LibraryView(props: {
 }) {
   return (
     <section
-      className="grid h-full min-h-0 grid-rows-[auto_1fr]"
+      className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr]"
       aria-label="Library"
     >
-      <header className="flex items-start justify-between gap-4 border-b border-border/70 px-4 py-3 sm:px-5">
+      <header className="flex min-w-0 items-start justify-between gap-4 border-b border-border/70 px-4 py-3 sm:px-5">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="truncate text-xs font-medium">
@@ -118,7 +118,7 @@ export function LibraryView(props: {
           </p>
         </div>
       ) : (
-        <ScrollArea className="min-h-0">
+        <ScrollArea className="min-h-0 min-w-0">
           <div className="p-2 sm:p-3">
             {props.tracks.map((track, index) => {
               const selected = track.id === props.selectedTrackId;

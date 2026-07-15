@@ -98,6 +98,8 @@ const signalProvider: SignalProvider = {
   readFrame: () => frame,
 };
 
+const onTogglePlayback = mock(() => undefined);
+
 function PlayerCardHarness() {
   const [activeView, setActiveView] = useState<CardView>("library");
   const [parameters, setParameters] = useState<SignalSceneParameters>(
@@ -140,7 +142,7 @@ function PlayerCardHarness() {
         onScan={mock(async () => undefined)}
         onSeek={mock(() => undefined)}
         onSelectTrack={mock(async () => undefined)}
-        onTogglePlayback={mock(() => undefined)}
+        onTogglePlayback={onTogglePlayback}
         onVolumeChange={mock(() => undefined)}
       />
     </TooltipProvider>
@@ -163,6 +165,8 @@ test("keeps the named card, transport, and all view panels mounted", async () =>
   );
 
   const playButton = screen.getByRole("button", { name: "Play" });
+  await user.click(playButton);
+  expect(onTogglePlayback).toHaveBeenCalledTimes(1);
   const libraryTab = screen.getByRole("tab", { name: "Library" });
   await user.click(libraryTab);
   await user.keyboard("{ArrowRight}");
