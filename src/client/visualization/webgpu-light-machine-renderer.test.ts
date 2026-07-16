@@ -308,9 +308,9 @@ test("uses one loop and a capped two-texture feedback pair", async () => {
     textureCreate: 2,
     frameRequests: 2,
   });
-  expect(harness.uniformWrites[0]?.[13]).toBeCloseTo(0.25);
-  expect(harness.uniformWrites[0]?.[14]).toBeCloseTo(0.8);
-  expect(harness.uniformWrites[0]?.[15]).toBeGreaterThan(0.49);
+  expect(harness.uniformWrites[0]?.[13]).toBeCloseTo(0.25 * 0.72);
+  expect(harness.uniformWrites[0]?.[14]).toBeCloseTo(0.8 * 0.72);
+  expect(harness.uniformWrites[0]?.[15]).toBeCloseTo((128 / 255) * 0.72);
 
   renderer?.setActive(false);
   expect(harness.counts.cancelFrame).toBe(1);
@@ -328,6 +328,34 @@ test("uses one loop and a capped two-texture feedback pair", async () => {
     textureDestroy: 2,
     unconfigure: 1,
   });
+});
+
+test("zero audio modulation removes every audio-feature uniform", async () => {
+  const harness = createHarness({ width: 400, height: 560 });
+  const renderer = await WebGpuLightMachineRenderer.create({
+    canvas: harness.canvas,
+    signalProvider: harness.signalProvider,
+    parameters: DEFAULT_LIGHT_MACHINE_SCENE_PARAMETERS,
+    onStatus: () => undefined,
+    environment: harness.environment,
+  });
+
+  renderer?.setState({
+    sceneId: "light-machine",
+    sceneVersion: 1,
+    parameters: {
+      ...DEFAULT_LIGHT_MACHINE_SCENE_PARAMETERS,
+      audioModulation: 0,
+    },
+  });
+  harness.getFrame()?.(1_000);
+
+  expect(harness.uniformWrites[0]?.[11]).toBe(0);
+  expect(Array.from(harness.uniformWrites[0]?.slice(13, 18) ?? [])).toEqual([
+    0, 0, 0, 0, 0,
+  ]);
+
+  renderer?.dispose();
 });
 
 test("recreates and destroys one feedback pair when bounded size changes", async () => {

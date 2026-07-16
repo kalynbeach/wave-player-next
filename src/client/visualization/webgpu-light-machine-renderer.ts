@@ -75,7 +75,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
   var point = input.uv * 2.0 - vec2f(1.0);
   point.x *= aspect;
 
-  let audio_rotation = frame.peak * frame.audio_modulation * 0.12;
+  let audio_rotation = frame.peak * 0.12;
   let angle = frame.rotation + audio_rotation;
   let sine = sin(angle);
   let cosine = cos(angle);
@@ -112,9 +112,11 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
     9.0,
   );
   let center_flash = exp(-radius * (5.0 + frame.peak * 6.0));
-  let audio_energy = (
-    0.12 + frame.rms * 2.8 + frame.peak * 0.9 + frame.bass * 0.7
-  ) * frame.audio_modulation;
+  let audio_energy =
+    frame.audio_modulation * 0.12 +
+    frame.rms * 2.8 +
+    frame.peak * 0.9 +
+    frame.bass * 0.7;
   let injection = (
     bass_ring * (0.25 + frame.bass) +
     radial_wave * spoke_wave * (0.22 + frame.mid) +
@@ -535,6 +537,8 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
     frame: ReturnType<SignalProvider["readFrame"]>,
   ): void {
     const palette = PALETTES[this.#parameters.palette];
+    // Gate features before upload so every shader audio path honors zero.
+    const audioModulation = this.#parameters.audioModulation;
     this.#uniforms[0] = this.#canvas.width;
     this.#uniforms[1] = this.#canvas.height;
     this.#uniforms[2] = timestampSeconds;
@@ -546,13 +550,16 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
     this.#uniforms[8] = palette.hueSpread;
     this.#uniforms[9] = palette.saturation;
     this.#uniforms[10] = this.#parameters.colorCycle;
-    this.#uniforms[11] = this.#parameters.audioModulation;
+    this.#uniforms[11] = audioModulation;
     this.#uniforms[12] = this.#parameters.intensity;
-    this.#uniforms[13] = frame.rms;
-    this.#uniforms[14] = frame.peak;
-    this.#uniforms[15] = this.#averageBins(frame.frequencyBins, 0, 0.08);
-    this.#uniforms[16] = this.#averageBins(frame.frequencyBins, 0.08, 0.35);
-    this.#uniforms[17] = this.#averageBins(frame.frequencyBins, 0.35, 0.8);
+    this.#uniforms[13] = frame.rms * audioModulation;
+    this.#uniforms[14] = frame.peak * audioModulation;
+    this.#uniforms[15] =
+      this.#averageBins(frame.frequencyBins, 0, 0.08) * audioModulation;
+    this.#uniforms[16] =
+      this.#averageBins(frame.frequencyBins, 0.08, 0.35) * audioModulation;
+    this.#uniforms[17] =
+      this.#averageBins(frame.frequencyBins, 0.35, 0.8) * audioModulation;
     this.#uniforms[18] = this.#signalProvider.isAvailable() ? 1 : 0;
     this.#uniforms[19] = 0;
     this.#device.queue.writeBuffer(this.#uniformBuffer, 0, this.#uniforms);
