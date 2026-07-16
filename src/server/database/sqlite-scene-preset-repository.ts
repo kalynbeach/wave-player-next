@@ -3,12 +3,11 @@ import type { Database } from "bun:sqlite";
 import type { ScenePresetRepository } from "@/app/scene/scene-preset-ports";
 import { parseScenePresetId } from "@/core/library/ids";
 import {
-  parseSignalSceneParameters,
-  SIGNAL_SCENE_ID,
-  SIGNAL_SCENE_VERSION,
-  type SignalSceneParameters,
-  type SignalScenePreset,
-} from "@/core/scene/signal-scene";
+  BUILT_IN_SCENE_REGISTRY,
+  parseScenePreset,
+  type ScenePreset,
+  type SceneState,
+} from "@/core/scene/scene-registry";
 
 type PresetRow = {
   id: string;
@@ -24,23 +23,16 @@ function newPresetId() {
   return parseScenePresetId(`preset_${Bun.randomUUIDv7()}`);
 }
 
-function presetFromRow(row: PresetRow): SignalScenePreset {
-  if (
-    row.scene_id !== SIGNAL_SCENE_ID ||
-    row.scene_version !== SIGNAL_SCENE_VERSION
-  ) {
-    throw new Error("The stored signal preset version is unsupported.");
-  }
-
-  return {
-    id: parseScenePresetId(row.id),
+function presetFromRow(row: PresetRow): ScenePreset {
+  return parseScenePreset({
+    id: row.id,
     name: row.name,
-    sceneId: SIGNAL_SCENE_ID,
-    sceneVersion: SIGNAL_SCENE_VERSION,
-    parameters: parseSignalSceneParameters(JSON.parse(row.parameters_json)),
+    sceneId: row.scene_id,
+    sceneVersion: row.scene_version,
+    parameters: JSON.parse(row.parameters_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-  };
+  });
 }
 
 export class SqliteScenePresetRepository implements ScenePresetRepository {
@@ -50,33 +42,30 @@ export class SqliteScenePresetRepository implements ScenePresetRepository {
     this.#database = database;
   }
 
-  listSignalPresets(): SignalScenePreset[] {
+  listPresets(): ScenePreset[] {
     return this.#database
-      .query<PresetRow, [string]>(`
+      .query<PresetRow, []>(`
         SELECT id, name, scene_id, scene_version, parameters_json,
           created_at, updated_at
         FROM scene_presets
-        WHERE scene_id = ?
-        ORDER BY name COLLATE NOCASE
+        ORDER BY scene_id, name COLLATE NOCASE
       `)
-      .all(SIGNAL_SCENE_ID)
+      .all()
       .map(presetFromRow);
   }
 
-  saveSignalPreset(
-    name: string,
-    parameters: SignalSceneParameters,
-  ): SignalScenePreset {
+  savePreset(name: string, state: SceneState): ScenePreset {
+    const validatedState = BUILT_IN_SCENE_REGISTRY.parseState(state);
     const existing = this.#database
       .query<{ id: string }, [string, string]>(`
         SELECT id
         FROM scene_presets
         WHERE scene_id = ? AND name = ?
       `)
-      .get(SIGNAL_SCENE_ID, name);
+      .get(validatedState.sceneId, name);
     const timestamp = new Date().toISOString();
     const id = existing ? parseScenePresetId(existing.id) : newPresetId();
-    const parametersJson = JSON.stringify(parameters);
+    const parametersJson = JSON.stringify(validatedState.parameters);
 
     if (existing) {
       this.#database
@@ -87,11 +76,11 @@ export class SqliteScenePresetRepository implements ScenePresetRepository {
           WHERE id = ? AND scene_id = ?
         `)
         .run(
-          SIGNAL_SCENE_VERSION,
+          validatedState.sceneVersion,
           parametersJson,
           timestamp,
           id,
-          SIGNAL_SCENE_ID,
+          validatedState.sceneId,
         );
     } else {
       this.#database
@@ -106,8 +95,8 @@ export class SqliteScenePresetRepository implements ScenePresetRepository {
         `)
         .run(
           id,
-          SIGNAL_SCENE_ID,
-          SIGNAL_SCENE_VERSION,
+          validatedState.sceneId,
+          validatedState.sceneVersion,
           name,
           parametersJson,
           timestamp,
@@ -125,7 +114,7 @@ export class SqliteScenePresetRepository implements ScenePresetRepository {
       .get(id);
 
     if (!saved) {
-      throw new Error("The signal scene preset could not be loaded.");
+      throw new Error("The scene preset could not be loaded.");
     }
 
     return presetFromRow(saved);

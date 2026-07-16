@@ -7,7 +7,11 @@ import { join } from "node:path";
 
 import { LibraryService } from "@/app/library/library-service";
 import { ScenePresetService } from "@/app/scene/scene-preset-service";
-import { DEFAULT_SIGNAL_SCENE_PARAMETERS } from "@/core/scene/signal-scene";
+import { createDefaultLightMachineSceneState } from "@/core/scene/light-machine-scene";
+import {
+  createDefaultSignalSceneState,
+  DEFAULT_SIGNAL_SCENE_PARAMETERS,
+} from "@/core/scene/signal-scene";
 import { SqliteLibraryRepository } from "@/server/database/sqlite-library-repository";
 import { SqliteMediaLocationRepository } from "@/server/database/sqlite-media-location-repository";
 import { SqliteScenePresetRepository } from "@/server/database/sqlite-scene-preset-repository";
@@ -252,7 +256,7 @@ test("rejects malformed requests, unknown IDs, disabled roots, and escaped files
   }
 });
 
-test("saves and restores a signal scene preset through real HTTP", async () => {
+test("saves and restores versioned scene presets through real HTTP", async () => {
   const application = await testApplication();
 
   try {
@@ -263,10 +267,13 @@ test("saves and restores a signal scene preset through real HTTP", async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: "Night trace",
-          parameters: {
-            ...DEFAULT_SIGNAL_SCENE_PARAMETERS,
-            mode: "lissajous",
-            persistence: 0.9,
+          state: {
+            ...createDefaultSignalSceneState(),
+            parameters: {
+              ...DEFAULT_SIGNAL_SCENE_PARAMETERS,
+              mode: "lissajous",
+              persistence: 0.9,
+            },
           },
         }),
       },
@@ -285,6 +292,61 @@ test("saves and restores a signal scene preset through real HTTP", async () => {
     );
     expect(listResponse.status).toBe(200);
     expect(await listResponse.json()).toEqual({ presets: [saved.preset] });
+
+    const lightSaveResponse = await fetch(
+      new URL("/api/scene-presets", application.url),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Prism engine",
+          state: createDefaultLightMachineSceneState(),
+        }),
+      },
+    );
+    expect(lightSaveResponse.status).toBe(200);
+    expect(await lightSaveResponse.json()).toMatchObject({
+      preset: { name: "Prism engine", sceneId: "light-machine" },
+    });
+
+    const unsupportedResponse = await fetch(
+      new URL("/api/scene-presets", application.url),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Future scene",
+          state: {
+            ...createDefaultLightMachineSceneState(),
+            sceneVersion: 2,
+          },
+        }),
+      },
+    );
+    expect(unsupportedResponse.status).toBe(400);
+    expect(await unsupportedResponse.json()).toMatchObject({
+      error: { code: "bad_request" },
+    });
+
+    const unknownSceneResponse = await fetch(
+      new URL("/api/scene-presets", application.url),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Unknown scene",
+          state: {
+            sceneId: "unknown",
+            sceneVersion: 1,
+            parameters: {},
+          },
+        }),
+      },
+    );
+    expect(unknownSceneResponse.status).toBe(400);
+    expect(await unknownSceneResponse.json()).toMatchObject({
+      error: { code: "bad_request" },
+    });
   } finally {
     await closeApplication(application);
   }

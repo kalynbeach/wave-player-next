@@ -8,7 +8,9 @@ import { BrowserPlayerSessionStore } from "@/client/playback/browser-player-sess
 import { HtmlMediaPlaybackRuntime } from "@/client/playback/html-media-playback-runtime";
 import type { TrackId } from "@/core/library/ids";
 import type { LibraryRoot } from "@/core/library/library";
+import type { ScenePreset } from "@/core/scene/scene-registry";
 import {
+  createDefaultSignalSceneState,
   DEFAULT_SIGNAL_SCENE_PARAMETERS,
   type SignalSceneParameters,
   type SignalScenePreset,
@@ -49,7 +51,7 @@ function ConnectedPlayer({ runtime }: { runtime: ApplicationRuntime }) {
   const [parameters, setParameters] = useState<SignalSceneParameters>(
     DEFAULT_SIGNAL_SCENE_PARAMETERS,
   );
-  const [presets, setPresets] = useState<readonly SignalScenePreset[]>([]);
+  const [presets, setPresets] = useState<readonly ScenePreset[]>([]);
   const [root, setRoot] = useState<LibraryRoot | null>(null);
 
   useEffect(() => {
@@ -144,7 +146,10 @@ function ConnectedPlayer({ runtime }: { runtime: ApplicationRuntime }) {
     setBusy(true);
     setError(null);
     try {
-      const response = await runtime.api.saveScenePreset(name, parameters);
+      const response = await runtime.api.saveScenePreset(name, {
+        ...createDefaultSignalSceneState(),
+        parameters,
+      });
       setPresets((current) =>
         [
           ...current.filter((preset) => preset.id !== response.preset.id),
@@ -159,6 +164,10 @@ function ConnectedPlayer({ runtime }: { runtime: ApplicationRuntime }) {
     }
   };
 
+  const signalPresets = presets.filter(
+    (preset): preset is SignalScenePreset => preset.sceneId === "signal",
+  );
+
   return (
     <PlayerCard
       activeView={activeView}
@@ -167,7 +176,7 @@ function ConnectedPlayer({ runtime }: { runtime: ApplicationRuntime }) {
       initialLoading={initialLoading}
       parameters={parameters}
       player={player}
-      presets={presets}
+      presets={signalPresets}
       root={root}
       signalProvider={runtime.playback.signalProvider}
       onActiveViewChange={(view) => {

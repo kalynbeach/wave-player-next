@@ -1,4 +1,4 @@
-import type { SignalSceneParameters } from "@/core/scene/signal-scene";
+import type { SceneState } from "@/core/scene/scene-registry";
 import type {
   ApiErrorResponse,
   LibraryRootResponse,
@@ -55,11 +55,11 @@ export class WaveApiClient {
 
   saveScenePreset(
     name: string,
-    parameters: SignalSceneParameters,
+    state: SceneState,
   ): Promise<SaveScenePresetResponse> {
     return apiRequest("/api/scene-presets", {
       method: "PUT",
-      body: JSON.stringify({ name, parameters }),
+      body: JSON.stringify({ name, state }),
     });
   }
 }
