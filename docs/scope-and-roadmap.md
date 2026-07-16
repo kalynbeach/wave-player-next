@@ -1,6 +1,6 @@
 # Scope and Roadmap
 
-> Status: Living design document; Task 1 is verified and Phase 2B is approved.
+> Status: Living design document; Task 1 and Phase 2B are implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
@@ -117,8 +117,10 @@ After the first slice is stable, two bounded tracks may proceed. They should sha
 
 ### Phase 2B: VLM-style light synthesizer
 
-Status: Approved for implementation on July 16, 2026. The execution contract is
-[`phase-2b-light-synthesizer.md`](phase-2b-light-synthesizer.md).
+Status: Implemented and verified on July 16, 2026. The execution contract is
+[`phase-2b-light-synthesizer.md`](phase-2b-light-synthesizer.md), and the
+requirement-by-requirement evidence is in
+[`phase-2b-implementation-report.md`](phase-2b-implementation-report.md).
 
 - prove the internal scene registry with a second scene;
 - feedback textures;

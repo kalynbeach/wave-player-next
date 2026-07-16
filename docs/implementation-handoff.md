@@ -1,16 +1,20 @@
 # Implementation Handoff
 
-> Status: Task 1 implemented and verified under Codex goal `019f6719-0a74-73b1-b19a-4fe04920214c`.
+> Status: Task 1 and Phase 2B implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
-> Last updated: July 15, 2026.
+> Last updated: July 16, 2026.
 
 ## Purpose
 
 This document records the handoff from planning into Task 1 and the gate for future implementation tasks.
 
-The user explicitly approved implementation on July 15, 2026. Task 1 completed in the isolated repository described below; see [Task 1 implementation and verification report](implementation-report.md).
+The user explicitly approved implementation on July 15, 2026. Task 1 completed
+in the isolated repository described below; see the
+[Task 1 implementation report](implementation-report.md). The separately
+approved Phase 2B light synthesizer completed on July 16, 2026; see the
+[Phase 2B implementation report](phase-2b-implementation-report.md).
 
 ## Recommended task structure
 
@@ -31,7 +35,7 @@ The implementation agent may delegate bounded research or verification internall
 After Task 1 is complete and stable:
 
 - Task 2A: Ableton-aware library intelligence and Work grouping;
-- Task 2B: VLM-style feedback/light synthesizer;
+- Task 2B: VLM-style feedback/light synthesizer — complete;
 - Task 3: Rust core, native CLI, WASM Worker, and cymatics scene;
 - later tasks: open-source hardening, Convex/object storage, GPUI, and KKB extraction.
 
