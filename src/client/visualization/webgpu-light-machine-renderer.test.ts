@@ -431,12 +431,16 @@ test("stops scheduling on device loss and disposes resources once", async () => 
   expect(harness.counts.cancelFrame).toBe(1);
   expect(harness.counts.frameRequests).toBe(1);
   expect(harness.counts.readFrame).toBe(0);
-
-  renderer?.dispose();
-  renderer?.dispose();
   expect(harness.counts).toMatchObject({
     bufferDestroy: 1,
     deviceDestroy: 1,
+    disconnectObserver: 1,
     textureDestroy: 2,
+    unconfigure: 1,
   });
+  const countsAfterLoss = { ...harness.counts };
+
+  renderer?.dispose();
+  renderer?.dispose();
+  expect(harness.counts).toEqual(countsAfterLoss);
 });

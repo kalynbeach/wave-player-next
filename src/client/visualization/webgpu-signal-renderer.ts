@@ -134,6 +134,7 @@ export class WebGpuSignalRenderer implements VisualizationRenderer {
   #disposed = false;
   #parameters: SignalSceneParameters;
   #renderFailed = false;
+  #resourcesReleased = false;
 
   private constructor(options: {
     canvas: HTMLCanvasElement;
@@ -230,7 +231,7 @@ export class WebGpuSignalRenderer implements VisualizationRenderer {
     void this.#device.lost.then((information) => {
       if (!this.#disposed) {
         this.#deviceLost = true;
-        this.#cancelFrame();
+        this.#releaseResources();
         this.#onStatus({
           state: "error",
           message: information.message || "The WebGPU device was lost.",
@@ -263,6 +264,12 @@ export class WebGpuSignalRenderer implements VisualizationRenderer {
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
+    this.#releaseResources();
+  }
+
+  #releaseResources(): void {
+    if (this.#resourcesReleased) return;
+    this.#resourcesReleased = true;
     this.#cancelFrame();
     this.#resizeObserver.disconnect();
     this.#vertexBuffer.destroy();

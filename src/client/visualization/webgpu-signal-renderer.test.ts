@@ -296,9 +296,17 @@ test("cancels and permanently gates rendering when the device is lost", async ()
   expect(harness.counts.cancelFrame).toBe(1);
   expect(harness.counts.frameRequests).toBe(1);
   expect(harness.counts.readFrame).toBe(0);
+  expect(harness.counts).toMatchObject({
+    bufferDestroy: 1,
+    deviceDestroy: 1,
+    disconnectObserver: 1,
+    unconfigure: 1,
+  });
+  const countsAfterLoss = { ...harness.counts };
 
   renderer?.dispose();
-  expect(harness.counts.deviceDestroy).toBe(1);
+  renderer?.dispose();
+  expect(harness.counts).toEqual(countsAfterLoss);
 });
 
 test("cancels hidden-view frames and resumes with one scheduled frame", async () => {
