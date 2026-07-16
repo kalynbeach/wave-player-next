@@ -1,5 +1,10 @@
 import type { SignalProvider } from "@/app/visualization/signal-provider";
+import type {
+  VisualizationRenderer,
+  VisualizationRendererStatus,
+} from "@/app/visualization/visualization-session";
 import { SignalGeometry } from "@/client/visualization/signal-geometry";
+import type { SceneState } from "@/core/scene/scene-registry";
 import type { SignalSceneParameters } from "@/core/scene/signal-scene";
 
 const SHADER = /* wgsl */ `
@@ -25,10 +30,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
 }
 `;
 
-export type SignalRendererStatus =
-  | { state: "ready" }
-  | { state: "unsupported"; message: string }
-  | { state: "error"; message: string };
+export type SignalRendererStatus = VisualizationRendererStatus;
 
 export type SignalRendererEnvironment = {
   gpu: GPU;
@@ -54,7 +56,7 @@ function browserEnvironment(): SignalRendererEnvironment | null {
   };
 }
 
-export class WebGpuSignalRenderer {
+export class WebGpuSignalRenderer implements VisualizationRenderer {
   static async create(options: {
     canvas: HTMLCanvasElement;
     signalProvider: SignalProvider;
@@ -217,6 +219,13 @@ export class WebGpuSignalRenderer {
 
   setParameters(parameters: SignalSceneParameters): void {
     this.#parameters = parameters;
+  }
+
+  setState(state: SceneState): void {
+    if (state.sceneId !== "signal") {
+      throw new Error("The signal renderer received another scene state.");
+    }
+    this.setParameters(state.parameters);
   }
 
   setActive(active: boolean): void {
