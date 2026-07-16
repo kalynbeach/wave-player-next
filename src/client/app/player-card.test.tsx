@@ -11,6 +11,8 @@ import type {
 } from "@/app/visualization/signal-provider";
 import { PlayerCard } from "@/client/app/player-card";
 import { TooltipProvider } from "@/client/components/ui/tooltip";
+import { BrowserVisualizationSession } from "@/client/visualization/browser-visualization-session";
+import { VisualizationSceneRegistry } from "@/client/visualization/visualization-scene-registry";
 import {
   parseAssetId,
   parseAssetLocationId,
@@ -20,9 +22,14 @@ import {
 } from "@/core/library/ids";
 import type { LibraryRoot, LibraryTrack } from "@/core/library/library";
 import {
-  DEFAULT_SIGNAL_SCENE_PARAMETERS,
-  type SignalSceneParameters,
-} from "@/core/scene/signal-scene";
+  createDefaultLightMachineSceneState,
+  DEFAULT_LIGHT_MACHINE_SCENE_PARAMETERS,
+} from "@/core/scene/light-machine-scene";
+import {
+  LIGHT_MACHINE_SCENE_DEFINITION,
+  SIGNAL_SCENE_DEFINITION,
+} from "@/core/scene/scene-registry";
+import { DEFAULT_SIGNAL_SCENE_PARAMETERS } from "@/core/scene/signal-scene";
 
 const selectedTrack: LibraryTrack = {
   id: parseTrackId("track_00000000-0000-4000-8000-000000000001"),
@@ -99,12 +106,33 @@ const signalProvider: SignalProvider = {
 };
 
 const onTogglePlayback = mock(() => undefined);
+let visualizationSession: BrowserVisualizationSession;
 
 function PlayerCardHarness() {
   const [activeView, setActiveView] = useState<CardView>("library");
-  const [parameters, setParameters] = useState<SignalSceneParameters>(
-    DEFAULT_SIGNAL_SCENE_PARAMETERS,
+  const [session] = useState(
+    () =>
+      new BrowserVisualizationSession({
+        registry: new VisualizationSceneRegistry(
+          [SIGNAL_SCENE_DEFINITION, LIGHT_MACHINE_SCENE_DEFINITION].map(
+            (scene) => ({
+              scene,
+              createRenderer: async (options) => {
+                options.onStatus({ state: "ready" });
+                return {
+                  setActive: () => undefined,
+                  setState: () => undefined,
+                  dispose: () => undefined,
+                };
+              },
+            }),
+          ),
+        ),
+        signalProvider,
+        random: () => 0.25,
+      }),
   );
+  visualizationSession = session;
 
   return (
     <TooltipProvider>
@@ -113,7 +141,6 @@ function PlayerCardHarness() {
         busy={false}
         error={null}
         initialLoading={false}
-        parameters={parameters}
         player={player}
         presets={[
           {
@@ -130,13 +157,26 @@ function PlayerCardHarness() {
             createdAt: "2026-07-15T00:00:00.000Z",
             updatedAt: "2026-07-15T00:00:00.000Z",
           },
+          {
+            id: parseScenePresetId(
+              "preset_00000000-0000-4000-8000-000000000002",
+            ),
+            name: "Prism engine",
+            ...createDefaultLightMachineSceneState(),
+            parameters: {
+              ...DEFAULT_LIGHT_MACHINE_SCENE_PARAMETERS,
+              palette: "ultraviolet",
+              symmetry: 8,
+            },
+            createdAt: "2026-07-16T00:00:00.000Z",
+            updatedAt: "2026-07-16T00:00:00.000Z",
+          },
         ]}
         root={root}
-        signalProvider={signalProvider}
+        visualizationSession={session}
         onActiveViewChange={setActiveView}
         onConfigureRoot={mock(async () => undefined)}
         onNext={mock(() => undefined)}
-        onParametersChange={setParameters}
         onPrevious={mock(() => undefined)}
         onSavePreset={mock(async () => undefined)}
         onScan={mock(async () => undefined)}
@@ -186,10 +226,55 @@ test("keeps the named card, transport, and all view panels mounted", async () =>
     DEFAULT_SIGNAL_SCENE_PARAMETERS.gain.toString(),
   );
 
-  await user.click(screen.getByRole("button", { name: "lissajous" }));
+  await user.click(screen.getByRole("button", { name: "Lissajous" }));
   expect(
     screen
-      .getByRole("button", { name: "lissajous" })
+      .getByRole("button", { name: "Lissajous" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
+
+  await user.click(screen.getByRole("button", { name: "Light machine" }));
+  await user.click(screen.getByRole("button", { name: "Light machine" }));
+  expect(visualizationSession.getSnapshot().scene.sceneId).toBe(
+    "light-machine",
+  );
+  expect(screen.getByRole("group", { name: "Feedback" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("group", { name: "Light-machine symmetry" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("group", { name: "Light-machine palette" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Vary" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Play" })).toBe(playButton);
+  expect(onTogglePlayback).toHaveBeenCalledTimes(1);
+
+  await user.click(screen.getByRole("button", { name: "Vary" }));
+  expect(visualizationSession.getSnapshot().scene).toMatchObject({
+    sceneId: "light-machine",
+    parameters: { symmetry: 2, palette: "ember" },
+  });
+  await user.click(
+    screen.getByRole("button", { name: "Reset Light machine parameters" }),
+  );
+  expect(visualizationSession.getSnapshot().scene).toEqual(
+    createDefaultLightMachineSceneState(),
+  );
+
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Saved scene preset" }),
+    "preset_00000000-0000-4000-8000-000000000001",
+  );
+  expect(visualizationSession.getSnapshot().scene).toMatchObject({
+    sceneId: "signal",
+    parameters: { mode: "lissajous" },
+  });
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Saved scene preset" }),
+    "preset_00000000-0000-4000-8000-000000000002",
+  );
+  expect(visualizationSession.getSnapshot().scene).toMatchObject({
+    sceneId: "light-machine",
+    parameters: { palette: "ultraviolet", symmetry: 8 },
+  });
 });
