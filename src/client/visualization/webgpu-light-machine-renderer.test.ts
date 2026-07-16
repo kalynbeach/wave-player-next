@@ -11,13 +11,22 @@ import {
 } from "@/client/visualization/webgpu-light-machine-renderer";
 import { DEFAULT_LIGHT_MACHINE_SCENE_PARAMETERS } from "@/core/scene/light-machine-scene";
 
-function createHarness(options: { width?: number; height?: number } = {}) {
+function createHarness(
+  options: {
+    configureFailure?: boolean;
+    height?: number;
+    textureFailureAt?: number;
+    width?: number;
+  } = {},
+) {
   const counts = {
     bufferDestroy: 0,
     cancelFrame: 0,
+    configure: 0,
     deviceDestroy: 0,
     disconnectObserver: 0,
     frameRequests: 0,
+    observe: 0,
     readFrame: 0,
     renderPasses: 0,
     submit: 0,
@@ -25,6 +34,8 @@ function createHarness(options: { width?: number; height?: number } = {}) {
     textureDestroy: 0,
     unconfigure: 0,
   };
+  let canvasConfigured = false;
+  let failNextFrame = false;
   const textureSizes: Array<{ width: number; height: number }> = [];
   const uniformWrites: Float32Array[] = [];
   let frameCallback: FrameRequestCallback | null = null;
@@ -63,6 +74,9 @@ function createHarness(options: { width?: number; height?: number } = {}) {
     createBuffer: () => uniformBuffer,
     createTexture: (descriptor: GPUTextureDescriptor) => {
       counts.textureCreate += 1;
+      if (options.textureFailureAt === counts.textureCreate) {
+        throw new Error("test texture creation failure");
+      }
       const size = descriptor.size as GPUExtent3DDict;
       textureSizes.push({
         width: size.width ?? 1,
@@ -95,19 +109,44 @@ function createHarness(options: { width?: number; height?: number } = {}) {
     getPreferredCanvasFormat: () => "bgra8unorm" as GPUTextureFormat,
   } as unknown as GPU;
   const context = {
-    configure: () => undefined,
+    configure: () => {
+      counts.configure += 1;
+      if (options.configureFailure) {
+        throw new Error("test configure failure");
+      }
+      canvasConfigured = true;
+    },
     unconfigure: () => {
       counts.unconfigure += 1;
+      canvasConfigured = false;
     },
-    getCurrentTexture: () => ({
-      createView: () => ({}) as GPUTextureView,
-    }),
+    getCurrentTexture: () => {
+      if (failNextFrame || !canvasConfigured) {
+        failNextFrame = false;
+        throw new Error("canvas is not configured");
+      }
+      return { createView: () => ({}) as GPUTextureView } as GPUTexture;
+    },
   } as unknown as GPUCanvasContext;
+  let canvasWidth = 0;
+  let canvasHeight = 0;
   const canvas = {
     clientWidth: options.width ?? 5_000,
     clientHeight: options.height ?? 2_500,
-    width: 0,
-    height: 0,
+    get width() {
+      return canvasWidth;
+    },
+    set width(value: number) {
+      canvasWidth = value;
+      canvasConfigured = false;
+    },
+    get height() {
+      return canvasHeight;
+    },
+    set height(value: number) {
+      canvasHeight = value;
+      canvasConfigured = false;
+    },
     getContext: (kind: string) => (kind === "webgpu" ? context : null),
   } as unknown as HTMLCanvasElement;
   const bins = new Uint8Array(1_024);
@@ -145,7 +184,9 @@ function createHarness(options: { width?: number; height?: number } = {}) {
     createResizeObserver: (callback) => {
       resizeCallback = callback;
       return {
-        observe: () => undefined,
+        observe: () => {
+          counts.observe += 1;
+        },
         disconnect: () => {
           counts.disconnectObserver += 1;
         },
@@ -159,6 +200,9 @@ function createHarness(options: { width?: number; height?: number } = {}) {
     canvas,
     counts,
     environment,
+    failNextRender: () => {
+      failNextFrame = true;
+    },
     getFrame: () => frameCallback,
     resize: () => resizeCallback?.([], {} as ResizeObserver),
     resolveLost,
@@ -167,6 +211,73 @@ function createHarness(options: { width?: number; height?: number } = {}) {
     uniformWrites,
   };
 }
+
+test("atomically cleans up when initial canvas configuration fails", async () => {
+  const harness = createHarness({
+    configureFailure: true,
+    width: 400,
+    height: 560,
+  });
+  const statuses: VisualizationRendererStatus[] = [];
+  const renderer = await WebGpuLightMachineRenderer.create({
+    canvas: harness.canvas,
+    signalProvider: harness.signalProvider,
+    parameters: DEFAULT_LIGHT_MACHINE_SCENE_PARAMETERS,
+    onStatus: (status) => statuses.push(status),
+    environment: harness.environment,
+  });
+
+  expect(renderer).toBeNull();
+  expect(statuses).toEqual([
+    {
+      state: "error",
+      message: "The light-machine WebGPU renderer could not be initialized.",
+    },
+  ]);
+  expect(harness.counts).toMatchObject({
+    bufferDestroy: 1,
+    configure: 1,
+    deviceDestroy: 1,
+    disconnectObserver: 1,
+    observe: 0,
+    textureDestroy: 0,
+    unconfigure: 1,
+  });
+});
+
+test("destroys a partial feedback pair when texture allocation fails", async () => {
+  const harness = createHarness({
+    height: 560,
+    textureFailureAt: 2,
+    width: 400,
+  });
+  const statuses: VisualizationRendererStatus[] = [];
+  const renderer = await WebGpuLightMachineRenderer.create({
+    canvas: harness.canvas,
+    signalProvider: harness.signalProvider,
+    parameters: DEFAULT_LIGHT_MACHINE_SCENE_PARAMETERS,
+    onStatus: (status) => statuses.push(status),
+    environment: harness.environment,
+  });
+
+  expect(renderer).toBeNull();
+  expect(statuses).toEqual([
+    {
+      state: "error",
+      message: "The light-machine WebGPU renderer could not be initialized.",
+    },
+  ]);
+  expect(harness.counts).toMatchObject({
+    bufferDestroy: 1,
+    configure: 1,
+    deviceDestroy: 1,
+    disconnectObserver: 1,
+    observe: 0,
+    textureCreate: 2,
+    textureDestroy: 1,
+    unconfigure: 1,
+  });
+});
 
 test("uses one loop and a capped two-texture feedback pair", async () => {
   const harness = createHarness();
@@ -182,6 +293,7 @@ test("uses one loop and a capped two-texture feedback pair", async () => {
   expect(renderer).not.toBeNull();
   expect(statuses).toEqual([{ state: "ready" }]);
   expect(harness.counts.textureCreate).toBe(2);
+  expect(harness.counts.configure).toBe(1);
   expect(harness.textureSizes).toEqual([
     { width: 1_024, height: 512 },
     { width: 1_024, height: 512 },
@@ -233,6 +345,7 @@ test("recreates and destroys one feedback pair when bounded size changes", async
   harness.resize();
   expect(harness.counts.textureCreate).toBe(4);
   expect(harness.counts.textureDestroy).toBe(2);
+  expect(harness.counts.configure).toBe(2);
   expect(harness.textureSizes.slice(-2)).toEqual([
     { width: 1_024, height: 512 },
     { width: 1_024, height: 512 },
@@ -256,6 +369,7 @@ test("creates and renders the feedback pair when backing size already matches", 
   });
 
   expect(harness.counts.textureCreate).toBe(2);
+  expect(harness.counts.configure).toBe(1);
   expect(harness.counts.frameRequests).toBe(1);
   harness.getFrame()?.(16);
   expect(harness.counts).toMatchObject({
@@ -263,6 +377,30 @@ test("creates and renders the feedback pair when backing size already matches", 
     renderPasses: 2,
     submit: 1,
   });
+  renderer?.dispose();
+});
+
+test("reports a frame failure once and permanently stops scheduling", async () => {
+  const harness = createHarness({ width: 400, height: 560 });
+  const statuses: VisualizationRendererStatus[] = [];
+  const renderer = await WebGpuLightMachineRenderer.create({
+    canvas: harness.canvas,
+    signalProvider: harness.signalProvider,
+    parameters: DEFAULT_LIGHT_MACHINE_SCENE_PARAMETERS,
+    onStatus: (status) => statuses.push(status),
+    environment: harness.environment,
+  });
+
+  harness.failNextRender();
+  harness.getFrame()?.(16);
+  renderer?.setActive(true);
+
+  expect(statuses.at(-1)).toEqual({
+    state: "error",
+    message: "The light-machine surface could not render a frame.",
+  });
+  expect(harness.counts.frameRequests).toBe(1);
+
   renderer?.dispose();
 });
 

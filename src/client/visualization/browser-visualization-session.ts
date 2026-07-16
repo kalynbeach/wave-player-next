@@ -43,6 +43,7 @@ export class BrowserVisualizationSession implements VisualizationSession {
   #disposed = false;
   #renderer: VisualizationRenderer | null = null;
   #rendererGeneration = 0;
+  #rendererWork: Promise<void> = Promise.resolve();
   #snapshot: VisualizationSessionSnapshot;
 
   constructor(options: {
@@ -270,7 +271,7 @@ export class BrowserVisualizationSession implements VisualizationSession {
     this.#canvas = null;
   }
 
-  async #replaceRenderer(): Promise<void> {
+  #replaceRenderer(): void {
     const canvas = this.#canvas;
     if (!canvas || this.#disposed) return;
 
@@ -278,6 +279,44 @@ export class BrowserVisualizationSession implements VisualizationSession {
     this.#renderer?.dispose();
     this.#renderer = null;
     this.#setStatus({ state: "initializing" });
+    this.#rendererWork = this.#rendererWork
+      .catch(() => undefined)
+      .then(() => this.#createRenderer({ canvas, generation }))
+      .catch((cause) => {
+        if (
+          generation === this.#rendererGeneration &&
+          !this.#disposed &&
+          this.#canvas === canvas
+        ) {
+          try {
+            this.#setStatus({
+              state: "error",
+              message:
+                cause instanceof Error && cause.message
+                  ? cause.message
+                  : "The visualization renderer could not be activated.",
+            });
+          } catch {
+            // Keep renderer work recoverable even if a subscriber throws.
+          }
+        }
+      });
+  }
+
+  async #createRenderer(options: {
+    canvas: HTMLCanvasElement;
+    generation: number;
+  }): Promise<void> {
+    const { canvas, generation } = options;
+
+    if (
+      generation !== this.#rendererGeneration ||
+      this.#disposed ||
+      this.#canvas !== canvas
+    ) {
+      return;
+    }
+
     let renderer: VisualizationRenderer | null;
 
     try {
@@ -313,13 +352,34 @@ export class BrowserVisualizationSession implements VisualizationSession {
       this.#disposed ||
       this.#canvas !== canvas
     ) {
-      renderer?.dispose();
+      try {
+        renderer?.dispose();
+      } catch {
+        // A stale renderer cannot be allowed to poison current ownership.
+      }
+      return;
+    }
+
+    try {
+      renderer?.setState(this.#snapshot.scene);
+      renderer?.setActive(this.#active);
+    } catch (cause) {
+      try {
+        renderer?.dispose();
+      } catch {
+        // Preserve the activation error as the actionable failure.
+      }
+      this.#setStatus({
+        state: "error",
+        message:
+          cause instanceof Error && cause.message
+            ? cause.message
+            : "The visualization renderer could not be activated.",
+      });
       return;
     }
 
     this.#renderer = renderer;
-    renderer?.setState(this.#snapshot.scene);
-    renderer?.setActive(this.#active);
   }
 
   #setStatus(

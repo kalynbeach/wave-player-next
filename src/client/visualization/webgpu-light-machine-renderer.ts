@@ -288,6 +288,7 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
   readonly #uniforms = new Float32Array(UNIFORM_FLOAT_COUNT);
   #active = true;
   #animationFrame: number | null = null;
+  #canvasConfigured = false;
   #deviceLost = false;
   #displayBindGroups: GPUBindGroup[] = [];
   #disposed = false;
@@ -295,6 +296,7 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
   #feedbackTextures: GPUTexture[] = [];
   #parameters: LightMachineSceneParameters;
   #readTextureIndex = 0;
+  #renderFailed = false;
 
   private constructor(options: {
     canvas: HTMLCanvasElement;
@@ -313,11 +315,6 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
     this.#parameters = parseLightMachineSceneParameters(options.parameters);
     this.#onStatus = options.onStatus;
     this.#format = this.#environment.gpu.getPreferredCanvasFormat();
-    this.#context.configure({
-      device: this.#device,
-      format: this.#format,
-      alphaMode: "opaque",
-    });
     const synthesisShader = this.#device.createShaderModule({
       code: SYNTHESIS_SHADER,
     });
@@ -354,11 +351,42 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
       size: this.#uniforms.byteLength,
       usage: this.#environment.uniformBufferUsage,
     });
-    this.#resizeObserver = this.#environment.createResizeObserver(() =>
-      this.#resize(),
-    );
-    this.#resizeObserver.observe(this.#canvas);
-    this.#resize();
+    this.#resizeObserver = this.#environment.createResizeObserver(() => {
+      try {
+        this.#resize();
+      } catch {
+        this.#fail(
+          "The light-machine surface could not be resized or configured.",
+        );
+      }
+    });
+    try {
+      this.#resize();
+      this.#resizeObserver.observe(this.#canvas);
+    } catch (cause) {
+      try {
+        this.#resizeObserver.disconnect();
+      } catch {
+        // Continue releasing renderer-owned resources.
+      }
+      try {
+        this.#destroyFeedbackTextures();
+      } catch {
+        // The device is destroyed by the factory boundary.
+      }
+      try {
+        this.#uniformBuffer.destroy();
+      } catch {
+        // The device is destroyed by the factory boundary.
+      }
+      try {
+        this.#context.unconfigure();
+      } catch {
+        // The context may have failed before configuration completed.
+      }
+      this.#canvasConfigured = false;
+      throw cause;
+    }
     this.#onStatus({ state: "ready" });
     void this.#device.lost.then((information) => {
       if (!this.#disposed) {
@@ -399,6 +427,7 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
     this.#destroyFeedbackTextures();
     this.#uniformBuffer.destroy();
     this.#context.unconfigure();
+    this.#canvasConfigured = false;
     this.#device.destroy();
   }
 
@@ -406,6 +435,7 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
     if (
       this.#disposed ||
       this.#deviceLost ||
+      this.#renderFailed ||
       !this.#active ||
       this.#animationFrame !== null
     ) {
@@ -427,58 +457,71 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
     if (
       this.#disposed ||
       this.#deviceLost ||
+      this.#renderFailed ||
       !this.#active ||
       this.#feedbackTextures.length !== 2
     ) {
       return;
     }
 
-    const frame = this.#signalProvider.readFrame(timestamp / 1_000);
-    this.#writeUniforms(timestamp / 1_000, frame);
-    const writeTextureIndex = this.#readTextureIndex === 0 ? 1 : 0;
-    const writeTexture = this.#feedbackTextures[writeTextureIndex];
-    const feedbackBindGroup = this.#feedbackBindGroups[this.#readTextureIndex];
-    const displayBindGroup = this.#displayBindGroups[writeTextureIndex];
+    try {
+      const frame = this.#signalProvider.readFrame(timestamp / 1_000);
+      this.#writeUniforms(timestamp / 1_000, frame);
+      const writeTextureIndex = this.#readTextureIndex === 0 ? 1 : 0;
+      const writeTexture = this.#feedbackTextures[writeTextureIndex];
+      const feedbackBindGroup =
+        this.#feedbackBindGroups[this.#readTextureIndex];
+      const displayBindGroup = this.#displayBindGroups[writeTextureIndex];
 
-    if (!writeTexture || !feedbackBindGroup || !displayBindGroup) {
+      if (!writeTexture || !feedbackBindGroup || !displayBindGroup) {
+        this.#scheduleFrame();
+        return;
+      }
+
+      const encoder = this.#device.createCommandEncoder();
+      const synthesisPass = encoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: writeTexture.createView(),
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            loadOp: "clear",
+            storeOp: "store",
+          },
+        ],
+      });
+      synthesisPass.setPipeline(this.#synthesisPipeline);
+      synthesisPass.setBindGroup(0, feedbackBindGroup);
+      synthesisPass.draw(3);
+      synthesisPass.end();
+
+      const displayPass = encoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: this.#context.getCurrentTexture().createView(),
+            clearValue: { r: 0.008, g: 0.008, b: 0.012, a: 1 },
+            loadOp: "clear",
+            storeOp: "store",
+          },
+        ],
+      });
+      displayPass.setPipeline(this.#displayPipeline);
+      displayPass.setBindGroup(0, displayBindGroup);
+      displayPass.draw(3);
+      displayPass.end();
+      this.#device.queue.submit([encoder.finish()]);
+      this.#readTextureIndex = writeTextureIndex;
       this.#scheduleFrame();
-      return;
+    } catch {
+      this.#fail("The light-machine surface could not render a frame.");
     }
-
-    const encoder = this.#device.createCommandEncoder();
-    const synthesisPass = encoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: writeTexture.createView(),
-          clearValue: { r: 0, g: 0, b: 0, a: 1 },
-          loadOp: "clear",
-          storeOp: "store",
-        },
-      ],
-    });
-    synthesisPass.setPipeline(this.#synthesisPipeline);
-    synthesisPass.setBindGroup(0, feedbackBindGroup);
-    synthesisPass.draw(3);
-    synthesisPass.end();
-
-    const displayPass = encoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: this.#context.getCurrentTexture().createView(),
-          clearValue: { r: 0.008, g: 0.008, b: 0.012, a: 1 },
-          loadOp: "clear",
-          storeOp: "store",
-        },
-      ],
-    });
-    displayPass.setPipeline(this.#displayPipeline);
-    displayPass.setBindGroup(0, displayBindGroup);
-    displayPass.draw(3);
-    displayPass.end();
-    this.#device.queue.submit([encoder.finish()]);
-    this.#readTextureIndex = writeTextureIndex;
-    this.#scheduleFrame();
   };
+
+  #fail(message: string): void {
+    if (this.#disposed || this.#deviceLost || this.#renderFailed) return;
+    this.#renderFailed = true;
+    this.#cancelFrame();
+    this.#onStatus({ state: "error", message });
+  }
 
   #writeUniforms(
     timestampSeconds: number,
@@ -536,50 +579,76 @@ export class WebGpuLightMachineRenderer implements VisualizationRenderer {
     const width = Math.max(1, Math.round(rawWidth * scale));
     const height = Math.max(1, Math.round(rawHeight * scale));
 
-    if (
-      this.#canvas.width === width &&
-      this.#canvas.height === height &&
-      this.#feedbackTextures.length === 2
-    ) {
+    const dimensionsMatch =
+      this.#canvas.width === width && this.#canvas.height === height;
+
+    if (dimensionsMatch && this.#feedbackTextures.length === 2) {
       return;
     }
-    if (this.#canvas.width !== width) this.#canvas.width = width;
-    if (this.#canvas.height !== height) this.#canvas.height = height;
+
+    if (!dimensionsMatch) {
+      if (this.#canvas.width !== width) this.#canvas.width = width;
+      if (this.#canvas.height !== height) this.#canvas.height = height;
+      this.#canvasConfigured = false;
+    }
+
+    if (!this.#canvasConfigured) {
+      this.#context.configure({
+        device: this.#device,
+        format: this.#format,
+        alphaMode: "opaque",
+      });
+      this.#canvasConfigured = true;
+    }
+
     this.#createFeedbackTextures(width, height);
   }
 
   #createFeedbackTextures(width: number, height: number): void {
-    this.#destroyFeedbackTextures();
-    this.#feedbackTextures = [0, 1].map(() =>
-      this.#device.createTexture({
-        label: "light-machine-feedback",
-        size: { width, height, depthOrArrayLayers: 1 },
-        format: FEEDBACK_FORMAT,
-        usage: this.#environment.feedbackTextureUsage,
-      }),
-    );
-    const synthesisLayout = this.#synthesisPipeline.getBindGroupLayout(0);
-    const displayLayout = this.#displayPipeline.getBindGroupLayout(0);
-    this.#feedbackBindGroups = this.#feedbackTextures.map((texture) =>
-      this.#device.createBindGroup({
-        layout: synthesisLayout,
-        entries: [
-          { binding: 0, resource: texture.createView() },
-          { binding: 1, resource: this.#sampler },
-          { binding: 2, resource: { buffer: this.#uniformBuffer } },
-        ],
-      }),
-    );
-    this.#displayBindGroups = this.#feedbackTextures.map((texture) =>
-      this.#device.createBindGroup({
-        layout: displayLayout,
-        entries: [
-          { binding: 0, resource: texture.createView() },
-          { binding: 1, resource: this.#sampler },
-        ],
-      }),
-    );
-    this.#readTextureIndex = 0;
+    const textures: GPUTexture[] = [];
+
+    try {
+      for (let index = 0; index < 2; index += 1) {
+        textures.push(
+          this.#device.createTexture({
+            label: "light-machine-feedback",
+            size: { width, height, depthOrArrayLayers: 1 },
+            format: FEEDBACK_FORMAT,
+            usage: this.#environment.feedbackTextureUsage,
+          }),
+        );
+      }
+      const synthesisLayout = this.#synthesisPipeline.getBindGroupLayout(0);
+      const displayLayout = this.#displayPipeline.getBindGroupLayout(0);
+      const feedbackBindGroups = textures.map((texture) =>
+        this.#device.createBindGroup({
+          layout: synthesisLayout,
+          entries: [
+            { binding: 0, resource: texture.createView() },
+            { binding: 1, resource: this.#sampler },
+            { binding: 2, resource: { buffer: this.#uniformBuffer } },
+          ],
+        }),
+      );
+      const displayBindGroups = textures.map((texture) =>
+        this.#device.createBindGroup({
+          layout: displayLayout,
+          entries: [
+            { binding: 0, resource: texture.createView() },
+            { binding: 1, resource: this.#sampler },
+          ],
+        }),
+      );
+
+      this.#destroyFeedbackTextures();
+      this.#feedbackTextures = textures;
+      this.#feedbackBindGroups = feedbackBindGroups;
+      this.#displayBindGroups = displayBindGroups;
+      this.#readTextureIndex = 0;
+    } catch (cause) {
+      for (const texture of textures) texture.destroy();
+      throw cause;
+    }
   }
 
   #destroyFeedbackTextures(): void {
