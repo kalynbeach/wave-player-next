@@ -1,10 +1,10 @@
 # Decision Log
 
-> Status: Living design document; Task 1 is implemented and verified.
+> Status: Living design document; Task 1 is verified and Phase 2B is approved.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
-> Last updated: July 15, 2026.
+> Last updated: July 16, 2026.
 
 ## Status meanings
 
@@ -52,6 +52,9 @@
 | 2026-07-15 | Settled | Do not begin implementation until explicit approval. | The current task remains architecture and documentation work. |
 | 2026-07-15 | Settled | Begin Task 1 after explicit user approval, with logical verified milestone commits. | The implementation goal is active; commits remain local and no remote, push, PR, or publication is authorized. |
 | 2026-07-15 | Settled | Accept Task 1 as implemented and verified. | The complete automated gate and Codex-native live verification pass; `implementation-report.md` records the evidence and all deferred phases remain out of scope. |
+| 2026-07-16 | Settled | Accept the user's real-browser use with their test music directory as satisfying the personal-listening gate. | The gate exists to validate actual use, not to impose an arbitrary calendar delay after the intended evidence already exists. |
+| 2026-07-16 | Settled | Begin Phase 2B with an internal `signal` and `light-machine` scene registry under the approved phase contract. | The second built-in scene proves the visualization lifecycle and product direction before public plugins, Rust/WASM, or additional scenes. |
+| 2026-07-16 | Settled | Use one implementation task plus one read-only supervisor task for Phase 2B and future substantial phases. | The implementation task remains the sole writer; the supervisor monitors through a quiet heartbeat, sends evidence-based interventions, independently audits completion, and removes the heartbeat afterward. |
 
 ## Deferred decisions
 

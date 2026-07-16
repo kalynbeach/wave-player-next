@@ -1,10 +1,10 @@
 # Scope and Roadmap
 
-> Status: Living design document; Task 1 is implemented and verified.
+> Status: Living design document; Task 1 is verified and Phase 2B is approved.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
-> Last updated: July 15, 2026.
+> Last updated: July 16, 2026.
 
 ## Scope strategy
 
@@ -93,6 +93,11 @@ The phase is complete only when:
 
 After implementation completion, the user should run a one-week personal-listening evaluation before Phase 2 begins. That evaluation validates the release; it does not require an implementation agent to remain active for a calendar week.
 
+On July 16, 2026, the user confirmed that they had already been manually using
+and testing the player in a real browser with their test music directory and
+that the current behavior worked as intended. That evidence satisfies the
+personal-listening gate for beginning the separately approved Phase 2B scope.
+
 ## Phase 2: immediate follow-ups
 
 After the first slice is stable, two bounded tracks may proceed. They should share stable core contracts but avoid overlapping edits.
@@ -111,6 +116,9 @@ After the first slice is stable, two bounded tracks may proceed. They should sha
 - improved library search.
 
 ### Phase 2B: VLM-style light synthesizer
+
+Status: Approved for implementation on July 16, 2026. The execution contract is
+[`phase-2b-light-synthesizer.md`](phase-2b-light-synthesizer.md).
 
 - prove the internal scene registry with a second scene;
 - feedback textures;
