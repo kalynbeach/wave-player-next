@@ -26,4 +26,10 @@ test("rejects invalid signal scene parameters", () => {
     }),
   ).toThrow("Persistence must be between 0 and 0.98");
   expect(() => parseSignalSceneParameters(null)).toThrow("must be an object");
+  expect(() =>
+    parseSignalSceneParameters({
+      ...DEFAULT_SIGNAL_SCENE_PARAMETERS,
+      unsupported: true,
+    }),
+  ).toThrow("unsupported fields");
 });
