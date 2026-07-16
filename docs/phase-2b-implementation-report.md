@@ -48,7 +48,7 @@ The final gate ran from the repository root:
 
 | Check | Result |
 |---|---|
-| `bun test --coverage` | 71 passed, 0 failed, 307 assertions; 93.68% line and 85.28% function coverage |
+| `bun test --coverage` | 71 passed, 0 failed, 309 assertions; 93.68% line and 85.32% function coverage |
 | `bun run typecheck` | passed with TypeScript 7.0.2 |
 | `bun run check` | passed across the complete repository |
 | `bun run build` | passed; server, client, HTML, and CSS emitted under ignored `dist/` |
@@ -65,8 +65,10 @@ The focused scene/session/GPU tests prove:
 - per-scene state retention and playback-runtime identity across scene changes;
 - stale async renderer disposal, shared-canvas factory serialization, current
   factory rejection, activation-failure recovery, and idempotent disposal;
-- one active loop, hidden-view cancellation, one resumed loop, capped resize,
-  device-loss gating, and exact owned-resource destruction;
+- one active loop, hidden-view cancellation, one resumed loop, and capped
+  resize;
+- device loss immediately releases observers, contexts, buffers, devices, and
+  both light-machine textures; later repeated disposal leaves counts unchanged;
 - initial size equality still creates two feedback textures and renders;
 - backing-size changes reconfigure the canvas before the next frame;
 - constructor configure failure releases the observer, buffer, context, and
@@ -191,7 +193,7 @@ decorative interface motion.
 | 5 | Pass | Keyboard and pointer input changed validated scene state; transport remains independently named and operable. |
 | 6 | Pass | Bounded variation and deterministic defaults are unit-tested and live reset/Vary values were measured. |
 | 7 | Pass | The same playing track progressed from 6.6 s to 33 s through repeated scene changes with volume 0.8; runtime identity is also unit-tested. |
-| 8 | Pass | Hidden/resume, one-loop, stale/reverse ownership, device loss, partial allocation, and repeated disposal tests pass. |
+| 8 | Pass | Hidden/resume, one-loop, stale/reverse ownership, partial allocation, and repeated disposal tests pass; device loss itself releases every owned observer/GPU resource before a later idempotent dispose. |
 | 9 | Pass | Both scene unions round-trip through SQLite and real HTTP with version, validated parameters, and light palette. |
 | 10 | Pass | Both live preset kinds selected their owner; malformed and unsupported presets fail clearly in core and HTTP tests. |
 | 11 | Pass | Unsupported, factory rejection, activation recovery, configure/allocation failure, device loss, and frame error paths are typed and contained; playback ownership is separate. |
