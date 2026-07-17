@@ -1,5 +1,10 @@
 import type { SignalProvider } from "@/app/visualization/signal-provider";
+import type {
+  VisualizationRenderer,
+  VisualizationRendererStatus,
+} from "@/app/visualization/visualization-session";
 import { SignalGeometry } from "@/client/visualization/signal-geometry";
+import type { SceneState } from "@/core/scene/scene-registry";
 import type { SignalSceneParameters } from "@/core/scene/signal-scene";
 
 const SHADER = /* wgsl */ `
@@ -25,10 +30,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
 }
 `;
 
-export type SignalRendererStatus =
-  | { state: "ready" }
-  | { state: "unsupported"; message: string }
-  | { state: "error"; message: string };
+export type SignalRendererStatus = VisualizationRendererStatus;
 
 export type SignalRendererEnvironment = {
   gpu: GPU;
@@ -54,7 +56,7 @@ function browserEnvironment(): SignalRendererEnvironment | null {
   };
 }
 
-export class WebGpuSignalRenderer {
+export class WebGpuSignalRenderer implements VisualizationRenderer {
   static async create(options: {
     canvas: HTMLCanvasElement;
     signalProvider: SignalProvider;
@@ -127,9 +129,12 @@ export class WebGpuSignalRenderer {
   readonly #vertexBuffer: GPUBuffer;
   #active = true;
   #animationFrame: number | null = null;
+  #canvasConfigured = false;
   #deviceLost = false;
   #disposed = false;
   #parameters: SignalSceneParameters;
+  #renderFailed = false;
+  #resourcesReleased = false;
 
   private constructor(options: {
     canvas: HTMLCanvasElement;
@@ -148,11 +153,6 @@ export class WebGpuSignalRenderer {
     this.#parameters = options.parameters;
     this.#onStatus = options.onStatus;
     this.#format = this.#environment.gpu.getPreferredCanvasFormat();
-    this.#context.configure({
-      device: this.#device,
-      format: this.#format,
-      alphaMode: "opaque",
-    });
     const shader = this.#device.createShaderModule({ code: SHADER });
     this.#pipeline = this.#device.createRenderPipeline({
       layout: "auto",
@@ -196,16 +196,42 @@ export class WebGpuSignalRenderer {
       size: this.#geometry.vertices.byteLength,
       usage: this.#environment.vertexBufferUsage,
     });
-    this.#resizeObserver = this.#environment.createResizeObserver(() =>
-      this.#resize(),
-    );
-    this.#resizeObserver.observe(this.#canvas);
-    this.#resize();
+    this.#resizeObserver = this.#environment.createResizeObserver(() => {
+      try {
+        this.#resize();
+      } catch {
+        this.#fail(
+          "The WebGPU signal surface could not be resized or configured.",
+        );
+      }
+    });
+    try {
+      this.#resize();
+      this.#resizeObserver.observe(this.#canvas);
+    } catch (cause) {
+      try {
+        this.#resizeObserver.disconnect();
+      } catch {
+        // Continue releasing renderer-owned resources.
+      }
+      try {
+        this.#vertexBuffer.destroy();
+      } catch {
+        // The device is destroyed by the factory boundary.
+      }
+      try {
+        this.#context.unconfigure();
+      } catch {
+        // The context may have failed before configuration completed.
+      }
+      this.#canvasConfigured = false;
+      throw cause;
+    }
     this.#onStatus({ state: "ready" });
     void this.#device.lost.then((information) => {
       if (!this.#disposed) {
         this.#deviceLost = true;
-        this.#cancelFrame();
+        this.#releaseResources();
         this.#onStatus({
           state: "error",
           message: information.message || "The WebGPU device was lost.",
@@ -217,6 +243,13 @@ export class WebGpuSignalRenderer {
 
   setParameters(parameters: SignalSceneParameters): void {
     this.#parameters = parameters;
+  }
+
+  setState(state: SceneState): void {
+    if (state.sceneId !== "signal") {
+      throw new Error("The signal renderer received another scene state.");
+    }
+    this.setParameters(state.parameters);
   }
 
   setActive(active: boolean): void {
@@ -231,10 +264,17 @@ export class WebGpuSignalRenderer {
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
+    this.#releaseResources();
+  }
+
+  #releaseResources(): void {
+    if (this.#resourcesReleased) return;
+    this.#resourcesReleased = true;
     this.#cancelFrame();
     this.#resizeObserver.disconnect();
     this.#vertexBuffer.destroy();
     this.#context.unconfigure();
+    this.#canvasConfigured = false;
     this.#device.destroy();
   }
 
@@ -242,6 +282,7 @@ export class WebGpuSignalRenderer {
     if (
       this.#disposed ||
       this.#deviceLost ||
+      this.#renderFailed ||
       !this.#active ||
       this.#animationFrame !== null
     )
@@ -259,37 +300,54 @@ export class WebGpuSignalRenderer {
 
   readonly #render = (timestamp: number): void => {
     this.#animationFrame = null;
-    if (this.#disposed || this.#deviceLost || !this.#active) return;
+    if (
+      this.#disposed ||
+      this.#deviceLost ||
+      this.#renderFailed ||
+      !this.#active
+    )
+      return;
 
-    const frame = this.#signalProvider.readFrame(timestamp / 1_000);
-    const aspectRatio = this.#canvas.width / Math.max(this.#canvas.height, 1);
-    this.#geometry.update(frame, this.#parameters, aspectRatio);
-    const byteLength = this.#geometry.vertexCount * 12;
-    this.#device.queue.writeBuffer(
-      this.#vertexBuffer,
-      0,
-      this.#geometry.vertices.buffer,
-      0,
-      byteLength,
-    );
-    const encoder = this.#device.createCommandEncoder();
-    const pass = encoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: this.#context.getCurrentTexture().createView(),
-          clearValue: { r: 0.018, g: 0.026, b: 0.03, a: 1 },
-          loadOp: "clear",
-          storeOp: "store",
-        },
-      ],
-    });
-    pass.setPipeline(this.#pipeline);
-    pass.setVertexBuffer(0, this.#vertexBuffer);
-    pass.draw(this.#geometry.vertexCount);
-    pass.end();
-    this.#device.queue.submit([encoder.finish()]);
-    this.#scheduleFrame();
+    try {
+      const frame = this.#signalProvider.readFrame(timestamp / 1_000);
+      const aspectRatio = this.#canvas.width / Math.max(this.#canvas.height, 1);
+      this.#geometry.update(frame, this.#parameters, aspectRatio);
+      const byteLength = this.#geometry.vertexCount * 12;
+      this.#device.queue.writeBuffer(
+        this.#vertexBuffer,
+        0,
+        this.#geometry.vertices.buffer,
+        0,
+        byteLength,
+      );
+      const encoder = this.#device.createCommandEncoder();
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: this.#context.getCurrentTexture().createView(),
+            clearValue: { r: 0.018, g: 0.026, b: 0.03, a: 1 },
+            loadOp: "clear",
+            storeOp: "store",
+          },
+        ],
+      });
+      pass.setPipeline(this.#pipeline);
+      pass.setVertexBuffer(0, this.#vertexBuffer);
+      pass.draw(this.#geometry.vertexCount);
+      pass.end();
+      this.#device.queue.submit([encoder.finish()]);
+      this.#scheduleFrame();
+    } catch {
+      this.#fail("The WebGPU signal surface could not render a frame.");
+    }
   };
+
+  #fail(message: string): void {
+    if (this.#disposed || this.#deviceLost || this.#renderFailed) return;
+    this.#renderFailed = true;
+    this.#cancelFrame();
+    this.#onStatus({ state: "error", message });
+  }
 
   #resize(): void {
     const pixelRatio = Math.min(this.#environment.devicePixelRatio(), 2);
@@ -305,6 +363,16 @@ export class WebGpuSignalRenderer {
     if (this.#canvas.width !== width || this.#canvas.height !== height) {
       this.#canvas.width = width;
       this.#canvas.height = height;
+      this.#canvasConfigured = false;
+    }
+
+    if (!this.#canvasConfigured) {
+      this.#context.configure({
+        device: this.#device,
+        format: this.#format,
+        alphaMode: "opaque",
+      });
+      this.#canvasConfigured = true;
     }
   }
 }

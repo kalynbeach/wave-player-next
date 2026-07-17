@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { App } from "@/client/app/app";
+import { App, createApplicationRuntime } from "@/client/app/app";
 
 const nativeFetch = globalThis.fetch;
 
@@ -90,4 +90,23 @@ test("reports a rejected root request without an unhandled rejection", async () 
   );
   await waitFor(() => expect(unhandledRejections).toBe(0));
   window.removeEventListener("unhandledrejection", onUnhandledRejection);
+});
+
+test("keeps one playback runtime and analysis graph across scene changes", () => {
+  const runtime = createApplicationRuntime();
+  const playback = runtime.playback;
+  const playbackSnapshot = playback.getSnapshot();
+  const signalProvider = playback.signalProvider;
+  const controller = runtime.controller;
+
+  runtime.visualization.selectScene("light-machine");
+  runtime.visualization.selectScene("signal");
+
+  expect(runtime.playback).toBe(playback);
+  expect(runtime.controller).toBe(controller);
+  expect(runtime.playback.signalProvider).toBe(signalProvider);
+  expect(runtime.playback.getSnapshot()).toBe(playbackSnapshot);
+
+  runtime.visualization.dispose();
+  runtime.controller.destroy();
 });

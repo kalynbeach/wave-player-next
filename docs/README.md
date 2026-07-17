@@ -1,10 +1,10 @@
 # Wave Player Next
 
-> Status: Living design packet; Task 1 is implemented and verified.
+> Status: Living design packet; Task 1 and Phase 2B are implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
-> Last updated: July 15, 2026.
+> Last updated: July 16, 2026.
 
 ## Purpose
 
@@ -40,6 +40,8 @@ Read these documents in order before planning or implementing:
 10. [Decision log](decision-log.md) — settled, provisional, and deferred decisions from the planning discussion.
 11. [Implementation handoff](implementation-handoff.md) — readiness criteria and instructions for future Codex implementation tasks.
 12. [Task 1 implementation report](implementation-report.md) — delivered scope, automated gates, and live verification evidence.
+13. [Phase 2B light synthesizer](phase-2b-light-synthesizer.md) — approved scope, technical boundaries, acceptance criteria, and execution rules.
+14. [Phase 2B implementation report](phase-2b-implementation-report.md) — delivered architecture, automated gates, live evidence, and acceptance matrix.
 
 ## Settled constraints
 
@@ -72,6 +74,7 @@ Read these documents in order before planning or implementing:
 - Treat Convex, S3/R2, GPUI, Native SDK, and broader source integrations as later phases.
 - Task 1 implementation began after explicit user approval on July 15, 2026.
 - Task 1 implementation and verification completed on July 15, 2026.
+- Phase 2B implementation and verification completed on July 16, 2026.
 
 ## Prior local work to consult
 

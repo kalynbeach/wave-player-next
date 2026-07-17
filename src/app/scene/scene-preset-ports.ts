@@ -1,12 +1,6 @@
-import type {
-  SignalSceneParameters,
-  SignalScenePreset,
-} from "@/core/scene/signal-scene";
+import type { ScenePreset, SceneState } from "@/core/scene/scene-registry";
 
 export interface ScenePresetRepository {
-  listSignalPresets(): SignalScenePreset[];
-  saveSignalPreset(
-    name: string,
-    parameters: SignalSceneParameters,
-  ): SignalScenePreset;
+  listPresets(): ScenePreset[];
+  savePreset(name: string, state: SceneState): ScenePreset;
 }

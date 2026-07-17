@@ -2,10 +2,9 @@ import { WarningCircle } from "@phosphor-icons/react";
 
 import type { CardView } from "@/app/playback/playback-ports";
 import type { PlayerSnapshot } from "@/app/playback/player-controller";
-import type { SignalProvider } from "@/app/visualization/signal-provider";
 import { LibraryView, RootSetup } from "@/client/app/library-view";
 import { SceneControls } from "@/client/app/scene-controls";
-import { SignalVisualizer } from "@/client/app/signal-visualizer";
+import { SceneVisualizer } from "@/client/app/scene-visualizer";
 import { Transport } from "@/client/app/transport";
 import { Badge } from "@/client/components/ui/badge";
 import { Card } from "@/client/components/ui/card";
@@ -16,12 +15,10 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/client/components/ui/tabs";
+import type { BrowserVisualizationSession } from "@/client/visualization/browser-visualization-session";
 import type { TrackId } from "@/core/library/ids";
 import type { LibraryRoot } from "@/core/library/library";
-import type {
-  SignalSceneParameters,
-  SignalScenePreset,
-} from "@/core/scene/signal-scene";
+import type { ScenePreset } from "@/core/scene/scene-registry";
 
 function isCardView(value: string | number): value is CardView {
   return value === "visual" || value === "library" || value === "scene";
@@ -32,15 +29,13 @@ export function PlayerCard(props: {
   busy: boolean;
   error: string | null;
   initialLoading: boolean;
-  parameters: SignalSceneParameters;
   player: PlayerSnapshot;
-  presets: readonly SignalScenePreset[];
+  presets: readonly ScenePreset[];
   root: LibraryRoot | null;
-  signalProvider: SignalProvider;
+  visualizationSession: BrowserVisualizationSession;
   onActiveViewChange: (view: CardView) => void;
   onConfigureRoot: (path: string) => Promise<void>;
   onNext: () => void;
-  onParametersChange: (parameters: SignalSceneParameters) => void;
   onPrevious: () => void;
   onSavePreset: (name: string) => Promise<void>;
   onScan: () => Promise<void>;
@@ -71,7 +66,7 @@ export function PlayerCard(props: {
           <div className="flex min-h-14 items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[0.5625rem] uppercase tracking-[0.22em] text-muted-foreground">
-                Wave Player · local signal 001
+                Wave Player · local visual instrument
               </p>
               {props.initialLoading ? (
                 <>
@@ -145,12 +140,10 @@ export function PlayerCard(props: {
                 keepMounted
                 className="absolute inset-0 data-[hidden]:hidden"
               >
-                <SignalVisualizer
+                <SceneVisualizer
                   active={props.activeView === "visual"}
                   analysisAvailable={playback.analysisAvailable}
-                  parameters={props.parameters}
-                  signalProvider={props.signalProvider}
-                  onParametersChange={props.onParametersChange}
+                  session={props.visualizationSession}
                 />
               </TabsContent>
               <TabsContent
@@ -174,10 +167,9 @@ export function PlayerCard(props: {
                 className="absolute inset-0 data-[hidden]:hidden"
               >
                 <SceneControls
-                  parameters={props.parameters}
+                  session={props.visualizationSession}
                   presets={props.presets}
                   busy={props.busy}
-                  onParametersChange={props.onParametersChange}
                   onSavePreset={props.onSavePreset}
                 />
               </TabsContent>

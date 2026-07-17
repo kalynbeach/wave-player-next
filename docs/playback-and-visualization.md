@@ -1,10 +1,10 @@
 # Playback and Visualization
 
-> Status: Living design document; Task 1 is implemented and verified.
+> Status: Living design document; Task 1 and Phase 2B are implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
-> Last updated: July 15, 2026.
+> Last updated: July 16, 2026.
 
 ## Architectural position
 
@@ -198,19 +198,23 @@ First-scene acceptance criteria:
 
 ### 2. VLM-style feedback/light synthesizer
 
-This should follow soon after the first scene is dependable.
+Phase 2B implemented this scene as the built-in `light-machine` on July 16,
+2026. It uses an internal two-scene registry and a browser visualization
+session that serializes renderer ownership for one shared canvas without
+changing playback ownership.
 
-Likely ingredients:
+Implemented ingredients:
 
-- feedback textures;
-- trails and decay;
-- symmetry and mirroring;
-- transforms and color cycling;
-- audio-feature modulation;
-- direct performance input;
-- preset mutation and randomization within bounded parameters.
+- two capped ping-pong feedback textures with bounded decay;
+- polar symmetry and mirroring at 2, 4, 6, or 8 folds;
+- rotation, zoom, palette selection, and color cycling;
+- modulation from existing frequency bins, RMS, and peak data;
+- pointer and keyboard performance input;
+- scene-aware presets, deterministic reset, and bounded variation;
+- explicit failure states, device-loss handling, and deterministic cleanup.
 
-The interaction model is more important than copying a historical visual style.
+The result is original rather than a copy of a historical visual style. See
+the [Phase 2B implementation report](phase-2b-implementation-report.md).
 
 ### 3. Cymatics-inspired nodal field
 

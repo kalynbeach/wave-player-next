@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { LibraryRoot, LibraryTrack } from "@/core/library/library";
-import type { SignalScenePreset } from "@/core/scene/signal-scene";
+import type { ScenePreset } from "@/core/scene/scene-registry";
 
 export const configureLibraryRootSchema = z.strictObject({
   path: z.string().trim().min(1).max(4_096),
@@ -45,15 +45,39 @@ export const signalSceneParametersSchema = z.strictObject({
   yFrequency: z.number().min(1).max(8),
 });
 
-export const saveSignalScenePresetSchema = z.strictObject({
+export const lightMachineSceneParametersSchema = z.strictObject({
+  feedback: z.number().min(0.5).max(0.97),
+  symmetry: z.union([z.literal(2), z.literal(4), z.literal(6), z.literal(8)]),
+  rotation: z.number().min(-180).max(180),
+  zoom: z.number().min(0.7).max(1.6),
+  palette: z.enum(["electric", "ember", "ultraviolet"]),
+  colorCycle: z.number().min(-1).max(1),
+  audioModulation: z.number().min(0).max(1),
+  intensity: z.number().min(0.4).max(2.4),
+});
+
+export const sceneStateSchema = z.discriminatedUnion("sceneId", [
+  z.strictObject({
+    sceneId: z.literal("signal"),
+    sceneVersion: z.literal(1),
+    parameters: signalSceneParametersSchema,
+  }),
+  z.strictObject({
+    sceneId: z.literal("light-machine"),
+    sceneVersion: z.literal(1),
+    parameters: lightMachineSceneParametersSchema,
+  }),
+]);
+
+export const saveScenePresetSchema = z.strictObject({
   name: z.string().trim().min(1).max(80),
-  parameters: signalSceneParametersSchema,
+  state: sceneStateSchema,
 });
 
 export type ScenePresetsResponse = {
-  presets: SignalScenePreset[];
+  presets: ScenePreset[];
 };
 
 export type SaveScenePresetResponse = {
-  preset: SignalScenePreset;
+  preset: ScenePreset;
 };

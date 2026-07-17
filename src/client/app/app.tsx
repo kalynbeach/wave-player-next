@@ -6,21 +6,20 @@ import { WaveApiClient } from "@/client/api/wave-api-client";
 import { PlayerCard } from "@/client/app/player-card";
 import { BrowserPlayerSessionStore } from "@/client/playback/browser-player-session-store";
 import { HtmlMediaPlaybackRuntime } from "@/client/playback/html-media-playback-runtime";
+import { BrowserVisualizationSession } from "@/client/visualization/browser-visualization-session";
+import { BUILT_IN_VISUALIZATION_SCENE_REGISTRY } from "@/client/visualization/built-in-visualization-scenes";
 import type { TrackId } from "@/core/library/ids";
 import type { LibraryRoot } from "@/core/library/library";
-import {
-  DEFAULT_SIGNAL_SCENE_PARAMETERS,
-  type SignalSceneParameters,
-  type SignalScenePreset,
-} from "@/core/scene/signal-scene";
+import type { ScenePreset } from "@/core/scene/scene-registry";
 
 type ApplicationRuntime = {
   api: WaveApiClient;
   controller: PlayerController;
   playback: HtmlMediaPlaybackRuntime;
+  visualization: BrowserVisualizationSession;
 };
 
-function createApplicationRuntime(): ApplicationRuntime {
+export function createApplicationRuntime(): ApplicationRuntime {
   const playback = new HtmlMediaPlaybackRuntime(new Audio());
   const controller = new PlayerController({
     runtime: playback,
@@ -32,6 +31,10 @@ function createApplicationRuntime(): ApplicationRuntime {
     api: new WaveApiClient(),
     controller,
     playback,
+    visualization: new BrowserVisualizationSession({
+      registry: BUILT_IN_VISUALIZATION_SCENE_REGISTRY,
+      signalProvider: playback.signalProvider,
+    }),
   };
 }
 
@@ -46,10 +49,7 @@ function ConnectedPlayer({ runtime }: { runtime: ApplicationRuntime }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [parameters, setParameters] = useState<SignalSceneParameters>(
-    DEFAULT_SIGNAL_SCENE_PARAMETERS,
-  );
-  const [presets, setPresets] = useState<readonly SignalScenePreset[]>([]);
+  const [presets, setPresets] = useState<readonly ScenePreset[]>([]);
   const [root, setRoot] = useState<LibraryRoot | null>(null);
 
   useEffect(() => {
@@ -144,7 +144,10 @@ function ConnectedPlayer({ runtime }: { runtime: ApplicationRuntime }) {
     setBusy(true);
     setError(null);
     try {
-      const response = await runtime.api.saveScenePreset(name, parameters);
+      const response = await runtime.api.saveScenePreset(
+        name,
+        runtime.visualization.getSnapshot().scene,
+      );
       setPresets((current) =>
         [
           ...current.filter((preset) => preset.id !== response.preset.id),
@@ -165,18 +168,16 @@ function ConnectedPlayer({ runtime }: { runtime: ApplicationRuntime }) {
       busy={busy}
       error={error ?? player.playback.error?.message ?? null}
       initialLoading={initialLoading}
-      parameters={parameters}
       player={player}
       presets={presets}
       root={root}
-      signalProvider={runtime.playback.signalProvider}
+      visualizationSession={runtime.visualization}
       onActiveViewChange={(view) => {
         setActiveView(view);
         runtime.controller.setActiveView(view);
       }}
       onConfigureRoot={configureRoot}
       onNext={() => runTransportAction(() => runtime.controller.next())}
-      onParametersChange={setParameters}
       onPrevious={() => runTransportAction(() => runtime.controller.previous())}
       onSavePreset={savePreset}
       onScan={scan}
@@ -198,6 +199,7 @@ export function App() {
     setRuntime(nextRuntime);
 
     return () => {
+      nextRuntime.visualization.dispose();
       nextRuntime.controller.destroy();
     };
   }, []);

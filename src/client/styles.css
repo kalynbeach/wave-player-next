@@ -98,6 +98,7 @@
   }
 
   .player-card [data-slot="button"],
+  .player-card [data-slot="toggle-group-item"],
   .player-card [data-slot="tooltip-trigger"],
   .player-card [data-slot="tabs-trigger"],
   .player-card input,

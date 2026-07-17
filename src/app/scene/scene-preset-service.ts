@@ -1,8 +1,5 @@
 import type { ScenePresetRepository } from "@/app/scene/scene-preset-ports";
-import type {
-  SignalSceneParameters,
-  SignalScenePreset,
-} from "@/core/scene/signal-scene";
+import type { ScenePreset, SceneState } from "@/core/scene/scene-registry";
 
 export class ScenePresetService {
   readonly #repository: ScenePresetRepository;
@@ -11,11 +8,11 @@ export class ScenePresetService {
     this.#repository = repository;
   }
 
-  list(): SignalScenePreset[] {
-    return this.#repository.listSignalPresets();
+  list(): ScenePreset[] {
+    return this.#repository.listPresets();
   }
 
-  save(name: string, parameters: SignalSceneParameters): SignalScenePreset {
-    return this.#repository.saveSignalPreset(name.trim(), parameters);
+  save(name: string, state: SceneState): ScenePreset {
+    return this.#repository.savePreset(name.trim(), state);
   }
 }

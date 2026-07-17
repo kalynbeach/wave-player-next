@@ -4,7 +4,7 @@ import type { ScenePresetService } from "@/app/scene/scene-preset-service";
 import type { ApiErrorResponse } from "@/shared/api";
 import {
   configureLibraryRootSchema,
-  saveSignalScenePresetSchema,
+  saveScenePresetSchema,
 } from "@/shared/api";
 
 type MediaHandler = (
@@ -91,7 +91,7 @@ export function createApplicationHandler(options: {
         }
 
         if (request.method === "PUT") {
-          const parsed = saveSignalScenePresetSchema.safeParse(
+          const parsed = saveScenePresetSchema.safeParse(
             await requestJson(request),
           );
 
@@ -104,10 +104,7 @@ export function createApplicationHandler(options: {
           }
 
           return json({
-            preset: options.presets.save(
-              parsed.data.name,
-              parsed.data.parameters,
-            ),
+            preset: options.presets.save(parsed.data.name, parsed.data.state),
           });
         }
       }
