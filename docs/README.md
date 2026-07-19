@@ -1,4 +1,4 @@
-# Wave Player Next
+# `wave-player-next` Documentation
 
 > Status: Living design packet; Task 1 and Phase 2B are implemented and verified.
 >

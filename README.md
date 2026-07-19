@@ -1,4 +1,4 @@
-# Wave Player Next
+# `wave-player-next`
 
 A local-first audiovisual music player for personal WAV and MP3 libraries.
 
