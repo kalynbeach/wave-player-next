@@ -26,3 +26,17 @@
 - Before committing, review staged or pending changes and summarize them clearly.
 - For all commit messages, use conventional commit syntax with a subject plus a detailed body when the change warrants it. The description body should use lower-cased bullet/list style when summarizing changes.
 - Use `gh` for working with GitHub by default, unless you have your own GitHub plugin or connector to use.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five canonical triage labels without overrides. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use the single-context domain documentation layout. See `docs/agents/domain.md`.
