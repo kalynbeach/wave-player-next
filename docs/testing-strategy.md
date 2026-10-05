@@ -318,6 +318,8 @@ The first implementation goal is not complete until tests prove:
 
 - a configured root scans into a real SQLite database;
 - rescanning is idempotent;
+- rescanning preserves playback when the selected location, asset fingerprint, and media URL are unchanged;
+- changing a selected file's size or modification time at the same location reloads it without autoplay;
 - unsupported files are reported without corrupting the import;
 - a catalog track resolves to a known local location;
 - the media endpoint supports byte ranges and rejects arbitrary paths;

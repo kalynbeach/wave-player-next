@@ -81,6 +81,9 @@ export class PlayerController {
       nextTrack?.location.available &&
       currentTrack.id === nextTrack.id &&
       currentTrack.location.id === nextTrack.location.id &&
+      currentTrack.asset.id === nextTrack.asset.id &&
+      currentTrack.asset.fileSizeBytes === nextTrack.asset.fileSizeBytes &&
+      currentTrack.asset.modifiedAtMs === nextTrack.asset.modifiedAtMs &&
       this.#sourceUrl(currentTrack) === this.#sourceUrl(nextTrack);
 
     // An unchanged source keeps its transport state while metadata refreshes.

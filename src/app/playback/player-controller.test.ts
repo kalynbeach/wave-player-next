@@ -30,6 +30,7 @@ function track(name: "alpha" | "beta", available = true): LibraryTrack {
       format: "wav",
       mimeType: "audio/wav",
       fileSizeBytes: 100,
+      modifiedAtMs: 1_000,
     },
     location: {
       id: parseAssetLocationId(`location_${uuid}`),
@@ -296,6 +297,28 @@ test("reloads when a catalog update resolves the same location to a different UR
     currentTime: 0,
   });
 });
+
+test.each(["fileSizeBytes", "modifiedAtMs"] as const)(
+  "reloads a selected file when its %s changes at the same location",
+  async (changedField) => {
+    const { controller, runtime, tracks } = controllerFixture("alpha");
+    controller.setTracks(tracks);
+    await controller.togglePlayback();
+    controller.seek(42);
+    const changed = track("alpha");
+    changed.asset[changedField] += 1;
+
+    controller.setTracks([changed, track("beta")]);
+
+    expect(controller.getSnapshot().selectedTrack).toBe(changed);
+    expect(runtime.loaded?.locationId).toBe(changed.location.id);
+    expect(runtime.getSnapshot()).toMatchObject({
+      status: "ready",
+      currentTime: 0,
+    });
+    expect(runtime.playCount).toBe(1);
+  },
+);
 
 test("falls back without autoplay when the selected track leaves the catalog", async () => {
   const { controller, runtime, sessionStore, tracks } =
