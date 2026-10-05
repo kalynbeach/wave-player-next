@@ -24,7 +24,8 @@ export function createApplicationRuntime(): ApplicationRuntime {
   const controller = new PlayerController({
     runtime: playback,
     sessionStore: new BrowserPlayerSessionStore(localStorage),
-    sourceUrl: (track) => `/media/${encodeURIComponent(track.location.id)}`,
+    sourceUrl: (track) =>
+      `/media/${encodeURIComponent(track.location.id)}?size=${track.asset.fileSizeBytes}&modified=${track.asset.modifiedAtMs}`,
   });
 
   return {

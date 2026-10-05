@@ -30,6 +30,7 @@ function track(name: "alpha" | "beta", available = true): LibraryTrack {
       format: "wav",
       mimeType: "audio/wav",
       fileSizeBytes: 100,
+      modifiedAtMs: 1_000,
     },
     location: {
       id: parseAssetLocationId(`location_${uuid}`),
@@ -127,7 +128,11 @@ class FakePlaybackRuntime implements PlaybackRuntime {
   }
 }
 
-function controllerFixture(selected: "alpha" | "beta" | null = null) {
+function controllerFixture(
+  selected: "alpha" | "beta" | null = null,
+  sourceUrl = (selectedTrack: LibraryTrack) =>
+    `/media/${selectedTrack.location.id}`,
+) {
   const runtime = new FakePlaybackRuntime();
   const tracks = [track("alpha"), track("beta")];
   const sessionStore = new MemorySessionStore({
@@ -139,7 +144,7 @@ function controllerFixture(selected: "alpha" | "beta" | null = null) {
   const controller = new PlayerController({
     runtime,
     sessionStore,
-    sourceUrl: (selectedTrack) => `/media/${selectedTrack.location.id}`,
+    sourceUrl,
   });
 
   return { controller, runtime, sessionStore, tracks };
@@ -209,4 +214,145 @@ test("keeps an unavailable restored track selected without loading it", () => {
 
   expect(controller.getSnapshot().selectedTrack?.title).toBe("Beta");
   expect(runtime.loaded).toBeNull();
+});
+
+test.each(["playing", "paused"] as const)(
+  "refreshes the catalog without interrupting %s playback of an unchanged source",
+  async (status) => {
+    const { controller, runtime, tracks } = controllerFixture("alpha");
+    controller.setTracks(tracks);
+    await controller.togglePlayback();
+    controller.seek(42);
+    if (status === "paused") await controller.togglePlayback();
+    const playbackBeforeRefresh = runtime.getSnapshot();
+    const renamed = { ...track("alpha"), title: "Updated title" };
+
+    controller.setTracks([track("beta"), renamed]);
+
+    expect(controller.getSnapshot().selectedTrack).toBe(renamed);
+    expect(controller.getSnapshot().tracks.map((item) => item.title)).toEqual([
+      "Beta",
+      "Updated title",
+    ]);
+    expect(controller.getSnapshot().playback).toEqual(playbackBeforeRefresh);
+    expect(runtime.playCount).toBe(1);
+  },
+);
+
+test("clears playback when a rescan marks the selected source unavailable", async () => {
+  const { controller, runtime, tracks } = controllerFixture("alpha");
+  controller.setTracks(tracks);
+  await controller.togglePlayback();
+  controller.seek(42);
+
+  controller.setTracks([track("alpha", false), track("beta")]);
+
+  expect(controller.getSnapshot().selectedTrack?.id).toBe(track("alpha").id);
+  expect(runtime.loaded).toBeNull();
+  expect(runtime.getSnapshot()).toMatchObject({
+    status: "idle",
+    currentTime: 0,
+  });
+
+  controller.setTracks(tracks);
+  expect(runtime.loaded?.locationId).toBe(track("alpha").location.id);
+  expect(runtime.getSnapshot().status).toBe("ready");
+  expect(runtime.playCount).toBe(1);
+});
+
+test("loads a replacement location for the selected track without autoplay", async () => {
+  const { controller, runtime, tracks } = controllerFixture("alpha");
+  controller.setTracks(tracks);
+  await controller.togglePlayback();
+  controller.seek(42);
+  const replacement = { ...track("alpha"), location: track("beta").location };
+
+  controller.setTracks([replacement]);
+
+  expect(controller.getSnapshot().selectedTrack).toBe(replacement);
+  expect(runtime.loaded?.locationId).toBe(replacement.location.id);
+  expect(runtime.getSnapshot()).toMatchObject({
+    status: "ready",
+    currentTime: 0,
+  });
+  expect(runtime.playCount).toBe(1);
+});
+
+test("reloads when a catalog update resolves the same location to a different URL", async () => {
+  const { controller, runtime, tracks } = controllerFixture(
+    "alpha",
+    (selectedTrack) => `/media/${selectedTrack.location.relativePath}`,
+  );
+  controller.setTracks(tracks);
+  await controller.togglePlayback();
+  controller.seek(42);
+  const relocated = track("alpha");
+  relocated.location.relativePath = "renamed.wav";
+
+  controller.setTracks([relocated]);
+
+  expect(runtime.loaded?.url).toBe("/media/renamed.wav");
+  expect(runtime.getSnapshot()).toMatchObject({
+    status: "ready",
+    currentTime: 0,
+  });
+});
+
+test.each(["fileSizeBytes", "modifiedAtMs"] as const)(
+  "reloads a selected file when its %s changes at the same location",
+  async (changedField) => {
+    const { controller, runtime, tracks } = controllerFixture("alpha");
+    controller.setTracks(tracks);
+    await controller.togglePlayback();
+    controller.seek(42);
+    const changed = track("alpha");
+    changed.asset[changedField] += 1;
+
+    controller.setTracks([changed, track("beta")]);
+
+    expect(controller.getSnapshot().selectedTrack).toBe(changed);
+    expect(runtime.loaded?.locationId).toBe(changed.location.id);
+    expect(runtime.getSnapshot()).toMatchObject({
+      status: "ready",
+      currentTime: 0,
+    });
+    expect(runtime.playCount).toBe(1);
+  },
+);
+
+test("falls back without autoplay when the selected track leaves the catalog", async () => {
+  const { controller, runtime, sessionStore, tracks } =
+    controllerFixture("alpha");
+  controller.setTracks(tracks);
+  await controller.togglePlayback();
+  controller.seek(42);
+
+  controller.setTracks([track("beta")]);
+
+  expect(controller.getSnapshot().selectedTrack?.id).toBe(track("beta").id);
+  expect(sessionStore.session.selectedTrackId).toBe(track("beta").id);
+  expect(runtime.getSnapshot()).toMatchObject({
+    status: "ready",
+    currentTime: 0,
+  });
+  expect(runtime.playCount).toBe(1);
+
+  controller.setTracks([]);
+  expect(controller.getSnapshot().selectedTrack).toBeNull();
+  expect(runtime.loaded).toBeNull();
+});
+
+test("explicitly selecting the current track still restarts playback", async () => {
+  const { controller, runtime, tracks } = controllerFixture("alpha");
+  controller.setTracks(tracks);
+  await controller.togglePlayback();
+  controller.seek(42);
+
+  await controller.select(track("alpha").id);
+
+  expect(runtime.getSnapshot()).toMatchObject({
+    status: "playing",
+    currentTime: 0,
+  });
+  expect(runtime.playCount).toBe(2);
 });

@@ -123,7 +123,10 @@ test("updates changed fingerprints and marks missing locations unavailable", () 
   expect(repository.listTracks()).toEqual([
     expect.objectContaining({
       title: "Alpha",
-      asset: expect.objectContaining({ fileSizeBytes: 120 }),
+      asset: expect.objectContaining({
+        fileSizeBytes: 120,
+        modifiedAtMs: 2_000,
+      }),
       location: expect.objectContaining({ available: true }),
     }),
     expect.objectContaining({

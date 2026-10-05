@@ -74,10 +74,23 @@ export class PlayerController {
         null)
       : null;
     const fallback = tracks.find((track) => track.location.available) ?? null;
-    this.#setSelection(selectedTrack ?? fallback, false);
+    const nextTrack = selectedTrack ?? fallback;
+    const currentTrack = this.#snapshot.selectedTrack;
+    const sameSource =
+      currentTrack?.location.available &&
+      nextTrack?.location.available &&
+      currentTrack.id === nextTrack.id &&
+      currentTrack.location.id === nextTrack.location.id &&
+      currentTrack.asset.id === nextTrack.asset.id &&
+      currentTrack.asset.fileSizeBytes === nextTrack.asset.fileSizeBytes &&
+      currentTrack.asset.modifiedAtMs === nextTrack.asset.modifiedAtMs &&
+      this.#sourceUrl(currentTrack) === this.#sourceUrl(nextTrack);
+
+    // An unchanged source keeps its transport state while metadata refreshes.
+    if (!sameSource) this.#setSelection(nextTrack, false);
     this.#snapshot = {
       tracks: [...tracks],
-      selectedTrack: this.#snapshot.selectedTrack,
+      selectedTrack: nextTrack,
       playback: this.#runtime.getSnapshot(),
     };
     this.#emit();
