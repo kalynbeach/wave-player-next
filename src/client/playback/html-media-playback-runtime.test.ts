@@ -47,6 +47,212 @@ function fixtureMedia(options: { blocked?: boolean } = {}) {
   };
 }
 
+function pendingRequest(
+  requests: PromiseWithResolvers<void>[],
+  index: number,
+): PromiseWithResolvers<void> {
+  const request = requests[index];
+  if (!request) throw new Error(`Expected pending request ${index}.`);
+  return request;
+}
+
+function pendingMedia() {
+  const media = document.createElement("audio");
+  const requests: PromiseWithResolvers<void>[] = [];
+  let paused = true;
+
+  Object.defineProperties(media, {
+    paused: { get: () => paused },
+    load: { value: () => undefined },
+    pause: {
+      value: () => {
+        paused = true;
+        media.dispatchEvent(new Event("pause"));
+      },
+    },
+    play: {
+      value: () => {
+        const request = Promise.withResolvers<void>();
+        requests.push(request);
+        paused = false;
+        media.dispatchEvent(new Event("play"));
+        return request.promise;
+      },
+    },
+  });
+
+  return { media, requests };
+}
+
+function pendingAudioContext() {
+  const resumes: PromiseWithResolvers<void>[] = [];
+  let closeCount = 0;
+  const node = { connect: () => node, disconnect: () => undefined };
+  const analyser = {
+    ...node,
+    fftSize: 2_048,
+    frequencyBinCount: 1_024,
+    smoothingTimeConstant: 0,
+    getByteFrequencyData: () => undefined,
+    getFloatTimeDomainData: () => undefined,
+  };
+  const context = {
+    state: "suspended",
+    sampleRate: 48_000,
+    destination: node,
+    createMediaElementSource: () => node,
+    createChannelSplitter: () => node,
+    createAnalyser: () => ({ ...analyser }),
+    resume: () => {
+      const request = Promise.withResolvers<void>();
+      resumes.push(request);
+      return request.promise;
+    },
+    close: async () => {
+      closeCount += 1;
+    },
+  } as unknown as AudioContext;
+
+  return { context, resumes, closeCount: () => closeCount };
+}
+
+test("an aborted previous source does not pause the newly selected source", async () => {
+  const { media, requests } = pendingMedia();
+  const runtime = new HtmlMediaPlaybackRuntime(media);
+  const nextLocation = parseAssetLocationId(
+    "location_018f1f2a-3b4c-7d5e-8f90-123456789abd",
+  );
+  runtime.load({ locationId: LOCATION_ID, url: "/a.wav" });
+  const first = runtime.play();
+  runtime.load({ locationId: nextLocation, url: "/b.wav" });
+  const second = runtime.play();
+
+  pendingRequest(requests, 0).reject(
+    new DOMException("Source changed", "AbortError"),
+  );
+  await expect(first).resolves.toBeUndefined();
+  expect(media.paused).toBe(false);
+  expect(runtime.getSnapshot()).toMatchObject({
+    locationId: nextLocation,
+    status: "loading",
+    error: null,
+  });
+
+  pendingRequest(requests, 1).resolve();
+  await second;
+  expect(runtime.getSnapshot().status).toBe("playing");
+  runtime.destroy();
+});
+
+test("a stale successful play does not clear the current source failure", async () => {
+  const { media, requests } = pendingMedia();
+  const runtime = new HtmlMediaPlaybackRuntime(media);
+  runtime.load({ locationId: LOCATION_ID, url: "/a.wav" });
+  const first = runtime.play();
+  runtime.load({ locationId: LOCATION_ID, url: "/replacement.wav" });
+  const second = runtime.play();
+  pendingRequest(requests, 1).reject(new Error("Unreadable replacement"));
+  await expect(second).rejects.toThrow("Unreadable replacement");
+  const failed = runtime.getSnapshot();
+  expect(failed).toMatchObject({
+    status: "error",
+    error: { code: "media_error" },
+  });
+
+  pendingRequest(requests, 0).resolve();
+  await first;
+  expect(runtime.getSnapshot()).toEqual(failed);
+  expect(media.paused).toBe(true);
+  runtime.destroy();
+});
+
+test("a newer play owns the same source while an earlier activation fails", async () => {
+  const { media, requests } = pendingMedia();
+  const { context, resumes } = pendingAudioContext();
+  const runtime = new HtmlMediaPlaybackRuntime(media, {
+    createAudioContext: () => context,
+  });
+  runtime.load({ locationId: LOCATION_ID, url: "/a.wav" });
+  const first = runtime.play();
+  const second = runtime.play();
+  pendingRequest(requests, 1).resolve();
+  pendingRequest(resumes, 1).resolve();
+  await second;
+  expect(runtime.signalProvider.isAvailable()).toBe(true);
+
+  pendingRequest(resumes, 0).reject(new Error("Earlier activation failed"));
+  pendingRequest(requests, 0).resolve();
+  await expect(first).resolves.toBeUndefined();
+  expect(media.paused).toBe(false);
+  expect(runtime.getSnapshot()).toMatchObject({
+    status: "playing",
+    error: null,
+    analysisAvailable: true,
+  });
+  expect(runtime.signalProvider.isAvailable()).toBe(true);
+  runtime.destroy();
+});
+
+test.each(["resolve", "reject"] as const)(
+  "pause cancels a pending play before it can %s",
+  async (settlement) => {
+    const { media, requests } = pendingMedia();
+    const runtime = new HtmlMediaPlaybackRuntime(media);
+    runtime.load({ locationId: LOCATION_ID, url: "/a.wav" });
+    const playback = runtime.play();
+    runtime.pause();
+    const paused = runtime.getSnapshot();
+
+    if (settlement === "resolve") pendingRequest(requests, 0).resolve();
+    else
+      pendingRequest(requests, 0).reject(
+        new DOMException("Paused", "AbortError"),
+      );
+    await expect(playback).resolves.toBeUndefined();
+    expect(runtime.getSnapshot()).toEqual(paused);
+    expect(media.paused).toBe(true);
+    runtime.destroy();
+  },
+);
+
+test("clearing the source cancels its pending play", async () => {
+  const { media, requests } = pendingMedia();
+  const runtime = new HtmlMediaPlaybackRuntime(media);
+  runtime.load({ locationId: LOCATION_ID, url: "/a.wav" });
+  const playback = runtime.play();
+  runtime.load(null);
+  pendingRequest(requests, 0).resolve();
+  await playback;
+
+  expect(runtime.getSnapshot()).toMatchObject({
+    status: "idle",
+    locationId: null,
+    error: null,
+  });
+  expect(media.paused).toBe(true);
+  runtime.destroy();
+});
+
+test("destroy during activation cannot reattach analysis or publish playback", async () => {
+  const { media, requests } = pendingMedia();
+  const { context, resumes, closeCount } = pendingAudioContext();
+  const runtime = new HtmlMediaPlaybackRuntime(media, {
+    createAudioContext: () => context,
+  });
+  runtime.load({ locationId: LOCATION_ID, url: "/a.wav" });
+  const playback = runtime.play();
+  runtime.destroy();
+  const disposed = runtime.getSnapshot();
+  pendingRequest(resumes, 0).resolve();
+  pendingRequest(requests, 0).resolve();
+  await playback;
+
+  expect(closeCount()).toBe(1);
+  expect(runtime.signalProvider.isAvailable()).toBe(false);
+  expect(runtime.getSnapshot()).toEqual(disposed);
+  expect(media.paused).toBe(true);
+});
+
 test("maps media lifecycle events into stable playback snapshots", async () => {
   const fixture = fixtureMedia();
   const runtime = new HtmlMediaPlaybackRuntime(fixture.media);
