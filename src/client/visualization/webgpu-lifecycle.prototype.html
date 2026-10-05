@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wave GPU lifecycle experiment</title>
+    <style>
+      :root { color-scheme: dark; font: 14px/1.5 ui-monospace, monospace; background: #101314; color: #e6eded; }
+      body { max-width: 1120px; margin: 24px auto; padding: 0 20px; }
+      h1 { font-size: 24px; margin-bottom: 4px; }
+      p { max-width: 92ch; color: #bdc9c9; }
+      button { font: inherit; padding: 10px 16px; margin: 0 8px 12px 0; border: 1px solid #647a7b; background: #1d3031; color: inherit; cursor: pointer; }
+      button:disabled { opacity: .45; cursor: default; }
+      button:focus-visible { outline: 2px solid #90dddd; outline-offset: 3px; }
+      #stage { min-height: 560px; overflow: auto; background: #090c0c; padding: 8px; }
+      canvas { display: block; width: 520px; height: 400px; }
+      #status { white-space: pre-wrap; color: #d4eaea; }
+      pre { max-height: 420px; overflow: auto; font: inherit; font-size: 12px; }
+      summary { cursor: pointer; margin: 16px 0 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>Wave GPU lifecycle experiment</h1>
+    <p>Disposable issue #15 experiment. Does sharing a device improve scene-switch latency, does this browser need canvas reconfiguration after resize, and does the adapter hint change these results? The existing visualization session still owns scene replacement. No audio or library data is used.</p>
+    <p>The full run takes about 11 minutes. It runs three device-policy rounds and four two-minute resize cases with 100 size changes each. Keep this page visible. Browser caches are not cleared, so first activation is recorded separately from repeated switches.</p>
+    <button id="smoke" type="button">Run short probe</button>
+    <button id="full" type="button">Run full comparison</button>
+    <button id="stop" type="button" disabled>Stop and release resources</button>
+    <div id="status" role="status">Ready.</div>
+    <div id="stage"><canvas aria-label="Generated signal rendered by the selected Wave scene"></canvas></div>
+    <details><summary>Recorded evidence</summary><pre id="results">No run yet.</pre></details>
+    <script type="module" src="./webgpu-lifecycle.prototype.ts"></script>
+  </body>
+</html>
