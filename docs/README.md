@@ -1,20 +1,20 @@
 # `wave-player-next` Documentation
 
-> Status: Living design packet; Task 1 and Phase 2B are implemented and verified.
+> Status: Historical design packet; Task 1 and Phase 2B are implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
-> Last updated: July 16, 2026.
+> Direction clarified: October 4, 2026. Implementation records date from July 2026.
 
 ## Purpose
 
-This directory is the durable planning record for Wave Player Next: a local-first personal audiovisual music system that begins as an isolated TypeScript and Bun application and may later contribute stable modules or packages back to KKB.
+This directory preserves the planning and implementation record for the Wave Player Next experiment. Read the [current project direction](../README.md#project-direction) before using these records to prioritize future work.
 
-The packet remains the design source of truth for the implemented first slice and future phase discussions. Later phases still require their own explicit implementation authorization.
+The packet documents the implemented first slice and the experiment's proposed later phases. Those phases remain historical plans and require explicit implementation authorization.
 
-## Current product direction
+## Original product direction
 
-Wave Player Next should become:
+Wave Player Next was envisioned as:
 
 - a useful personal player for original music, Ableton exports, masters, stems, and related audio;
 - a durable local music library with explicit modeling for works, listenable versions, assets, and locations;
@@ -26,7 +26,7 @@ Wave Player Next should become:
 
 ## Document index
 
-Read these documents in order before planning or implementing:
+When working on this experiment, read these documents in order before planning or implementing:
 
 1. [Product vision](product-vision.md) — product identity, principles, users, and long-term success.
 2. [Architecture](architecture.md) — modular-monolith shape, module boundaries, dependencies, state ownership, and main flows.

@@ -1,5 +1,9 @@
 # Development Rules
 
+## Project direction
+
+Before prioritizing audio/music or WavePlayer work, read [the project direction](README.md#project-direction) for this experiment's historical role and the current focus in `kkb-audio`.
+
 ## General
 
 - Keep answers concise.
