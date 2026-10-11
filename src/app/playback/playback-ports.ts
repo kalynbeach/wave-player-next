@@ -34,6 +34,9 @@ export interface PlaybackRuntime {
   getSnapshot(): PlaybackSnapshot;
   load(source: PlaybackSource | null): void;
   pause(): void;
+  /** Later play, load, pause, or destroy calls supersede pending playback.
+   * Superseded completions are ignored; only current failures reject.
+   */
   play(): Promise<void>;
   seek(timeSeconds: number): void;
   setVolume(volume: number): void;

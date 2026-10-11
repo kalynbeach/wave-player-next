@@ -28,7 +28,7 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
   readonly signalProvider = new WebAudioSignalProvider();
   #audioGraph: AudioGraph | null = null;
   #destroyed = false;
-  #playActivationPending = false;
+  #pendingPlay: symbol | null = null;
   #snapshot: PlaybackSnapshot;
 
   constructor(
@@ -77,6 +77,7 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
 
   load(source: PlaybackSource | null): void {
     this.#assertActive();
+    this.#pendingPlay = null;
     this.#media.pause();
 
     if (!source) {
@@ -105,17 +106,21 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
 
   async play(): Promise<void> {
     this.#assertActive();
-    this.#playActivationPending = true;
+    const request = Symbol();
+    this.#pendingPlay = request;
 
     try {
-      const graphActivation = this.#ensureAudioGraph();
+      const graphActivation = this.#ensureAudioGraph(request);
       const mediaPlayback = this.#media.play();
       await Promise.all([graphActivation, mediaPlayback]);
-      this.#playActivationPending = false;
+      if (this.#pendingPlay !== request) return;
+      this.#pendingPlay = null;
       this.#syncTime("playing");
       this.#update({ error: null });
     } catch (error) {
-      this.#playActivationPending = false;
+      // A replaced or cancelled request no longer owns the shared media element.
+      if (this.#pendingPlay !== request) return;
+      this.#pendingPlay = null;
       this.#media.pause();
       const blocked =
         error instanceof DOMException && error.name === "NotAllowedError";
@@ -132,6 +137,7 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
 
   pause(): void {
     this.#assertActive();
+    this.#pendingPlay = null;
     this.#media.pause();
   }
 
@@ -154,6 +160,7 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
     }
 
     this.#destroyed = true;
+    this.#pendingPlay = null;
     for (const eventName of [
       "canplay",
       "durationchange",
@@ -198,7 +205,7 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
         break;
       case "play":
       case "playing":
-        this.#syncTime(this.#playActivationPending ? "loading" : "playing");
+        this.#syncTime(this.#pendingPlay ? "loading" : "playing");
         break;
       case "pause":
         this.#syncTime(this.#media.ended ? "ended" : "paused");
@@ -225,9 +232,9 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
     }
   };
 
-  async #ensureAudioGraph(): Promise<void> {
+  async #ensureAudioGraph(request: symbol): Promise<void> {
     if (this.#audioGraph) {
-      await this.#activateAudioGraph(this.#audioGraph);
+      await this.#activateAudioGraph(this.#audioGraph, request);
       return;
     }
 
@@ -267,7 +274,7 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
       if (this.#audioGraph?.context === context) {
         this.signalProvider.detach();
         this.#update({ analysisAvailable: false });
-        await this.#activateAudioGraph(this.#audioGraph);
+        await this.#activateAudioGraph(this.#audioGraph, request);
         return;
       }
 
@@ -276,15 +283,16 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
       left?.disconnect();
       right?.disconnect();
       if (context) await context.close().catch(() => undefined);
+      if (this.#pendingPlay !== request) return;
       this.signalProvider.detach();
       this.#update({ analysisAvailable: false });
       return;
     }
 
-    await this.#activateAudioGraph(this.#audioGraph);
+    await this.#activateAudioGraph(this.#audioGraph, request);
   }
 
-  async #activateAudioGraph(graph: AudioGraph): Promise<void> {
+  async #activateAudioGraph(graph: AudioGraph, request: symbol): Promise<void> {
     if (!graph.outputConnected) {
       graph.source.connect(graph.context.destination);
       graph.outputConnected = true;
@@ -294,12 +302,14 @@ export class HtmlMediaPlaybackRuntime implements PlaybackRuntime {
       try {
         await graph.context.resume();
       } catch (error) {
+        if (this.#pendingPlay !== request) return;
         this.signalProvider.detach();
         this.#update({ analysisAvailable: false });
         throw error;
       }
     }
 
+    if (this.#pendingPlay !== request) return;
     if (!graph.analysisConnected) {
       this.signalProvider.detach();
       this.#update({ analysisAvailable: false });

@@ -1,14 +1,14 @@
 # Scope and Roadmap
 
-> Status: Living design document; Task 1 and Phase 2B are implemented and verified.
+> Status: Historical roadmap; Task 1 and Phase 2B are implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
-> Last updated: July 16, 2026.
+> Direction clarified: October 4, 2026. Implementation records date from July 2026.
 
 ## Scope strategy
 
-The project is a continuing flagship, but implementation should proceed through complete vertical slices.
+This document preserves the experiment's original phased plan. Read the [current project direction](../README.md#project-direction) before prioritizing later phases.
 
 The first slice proves the boring spine and one distinctive creative surface. Later phases add library intelligence, scenes, Rust/WASM, cloud capabilities, and native clients without making them prerequisites for personal usefulness.
 
