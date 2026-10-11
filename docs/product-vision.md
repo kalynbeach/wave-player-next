@@ -1,10 +1,12 @@
 # Product Vision
 
-> Status: Living design document; Task 1 is implemented and verified.
+> Status: Historical product vision; Task 1 is implemented and verified.
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
-> Last updated: July 15, 2026.
+> Direction clarified: October 4, 2026. Implementation records date from July 2026.
+
+This document preserves the experiment's original vision. Read the [current project direction](../README.md#project-direction) before using it to plan future WavePlayer work.
 
 ## Vision
 
