@@ -39,6 +39,7 @@ const selectedTrack: LibraryTrack = {
     format: "wav",
     mimeType: "audio/wav",
     fileSizeBytes: 4_096,
+    modifiedAtMs: 1_000,
   },
   location: {
     id: parseAssetLocationId("location_00000000-0000-4000-8000-000000000001"),

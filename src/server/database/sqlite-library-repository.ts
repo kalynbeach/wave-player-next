@@ -55,6 +55,7 @@ type TrackRow = {
   format: string;
   mime_type: string;
   file_size_bytes: number;
+  modified_at_ms: number;
   location_id: string;
   relative_path: string;
   available: number;
@@ -309,7 +310,8 @@ export class SqliteLibraryRepository implements LibraryRepository {
       .query<TrackRow, []>(`
         SELECT tracks.id AS track_id, tracks.title,
           assets.id AS asset_id, assets.format, assets.mime_type,
-          assets.file_size_bytes, asset_locations.id AS location_id,
+          assets.file_size_bytes, assets.modified_at_ms,
+          asset_locations.id AS location_id,
           asset_locations.relative_path, asset_locations.available
         FROM asset_locations
         JOIN library_roots ON library_roots.id = asset_locations.root_id
@@ -335,6 +337,7 @@ export class SqliteLibraryRepository implements LibraryRepository {
             format: row.format,
             mimeType: row.mime_type,
             fileSizeBytes: row.file_size_bytes,
+            modifiedAtMs: row.modified_at_ms,
           },
           location: {
             id: parseAssetLocationId(row.location_id),

@@ -4,7 +4,7 @@
 >
 > Planning source: Codex task `019f5f0f-9558-7ce0-b667-92d79994d3fd`, discussed July 13-15, 2026.
 >
-> Last updated: July 16, 2026.
+> Last updated: October 4, 2026.
 
 ## Architectural position
 
@@ -70,6 +70,12 @@ A runtime snapshot should eventually expose:
 - whether an analysis tap is available.
 
 ### Commands
+
+Refreshing the catalog preserves playback status and position when the selected
+track still has the same available location and media URL. Updated metadata still
+appears immediately. A missing source, changed location or URL, or replacement
+selection loads without autoplay. Explicitly selecting the current track still
+restarts it.
 
 At minimum:
 

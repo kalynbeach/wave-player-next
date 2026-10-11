@@ -34,6 +34,7 @@ export type LibraryTrack = {
     format: AudioFormat;
     mimeType: "audio/mpeg" | "audio/wav";
     fileSizeBytes: number;
+    modifiedAtMs: number;
   };
   location: {
     id: AssetLocationId;
