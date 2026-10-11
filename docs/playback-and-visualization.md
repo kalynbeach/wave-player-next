@@ -89,6 +89,13 @@ Command ordering and cancellation must be explicit. Important cases include:
 - an autoplay rejection;
 - a file disappearing after catalog import.
 
+The HTML media runtime gives each `play` request ownership of its pending media
+and Web Audio activation. A later `play`, `load`, `pause`, or `destroy` supersedes
+that request. Its eventual success or failure cannot pause the current source,
+change the current playback error, or reattach disposed analysis resources.
+Superseded completions resolve without reporting an error to the caller. A
+failure from the current request still rejects and publishes the playback error.
+
 ### Disposal
 
 `destroy` should be idempotent. Media listeners, animation frames, Web Audio nodes, and object URLs must have clear owners and deterministic cleanup.
